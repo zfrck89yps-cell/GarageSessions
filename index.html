@@ -28,5 +28,29 @@ function exportData(){let a=document.createElement('a');a.href=URL.createObjectU
 async function importData(f){if(!f)return;try{let d=JSON.parse(await f.text());if(!Array.isArray(d.sessions)||!Array.isArray(d.plans))throw Error('Invalid backup');if(confirm('Replace all current data with this backup?')){db=d;save();render()}}catch(e){alert('Could not restore: '+e.message)}}
 function addPlan(){let name=prompt('New plan name');if(!name)return;let id='custom'+Date.now();db.plans.push({id,name,type:'strength',ex:[]});save();editPlan(id)}
 function editPlan(id){let p=plan(id);let name=prompt('Plan name',p.name);if(name===null)return;p.name=name.trim()||p.name;let options=Object.keys(names).map(k=>k+' = '+names[k]).join('\n');let list=prompt('Exercise IDs, comma separated. Available:\n'+options,p.ex.map(x=>x[0]).join(','));if(list!==null){let ids=list.split(',').map(x=>x.trim()).filter(x=>names[x]);p.ex=ids.map(x=>[x,8,12])}save();render()}
+
+/* Garage Sessions advanced tracking */
+let restTimer=null,restEnds=0,restSeconds=90;
+function timerDisplay(){const n=document.querySelector('#timerdisplay');if(n)n.textContent=restEnds?Math.max(0,Math.ceil((restEnds-Date.now())/1000))+'s':'Ready';if(restEnds&&Date.now()>=restEnds){restEnds=0;clearInterval(restTimer);restTimer=null;if(n)n.textContent='Rest complete';if(navigator.vibrate)navigator.vibrate([150,80,150]);}}
+function startRest(seconds=restSeconds){restSeconds=Number(seconds)||90;restEnds=Date.now()+restSeconds*1000;if(restTimer)clearInterval(restTimer);restTimer=setInterval(timerDisplay,500);timerDisplay()}
+function stopRest(){restEnds=0;if(restTimer)clearInterval(restTimer);restTimer=null;timerDisplay()}
+const oldWorkout=workout;
+workout=function(){const result=oldWorkout();if(!db.draft)return result;return result.replace('<button class="btn" style="width:100%"', '<div class="card"><div class="split"><div><small>REST TIMER</small><h2 id="timerdisplay">Ready</h2></div><button class="ghost" onclick="stopRest()">Stop</button></div><div class="grid three"><button class="ghost" onclick="startRest(60)">60s</button><button class="ghost" onclick="startRest(90)">90s</button><button class="ghost" onclick="startRest(120)">120s</button></div></div><button class="btn" style="width:100%"')}
+const oldSetField=setField;
+setField=function(i,j,k,v){oldSetField(i,j,k,v);if(k==='done'&&v&&db.draft?.exercises?.[i]?.id!=='bike')startRest()};
+function editHistorySession(t){const s=db.sessions.find(x=>x.completed===t);if(!s)return;let note=prompt('Edit session notes',s.notes||'');if(note===null)return;s.notes=note;save();render()}
+const oldHistory=history;
+history=function(){return oldHistory().replace(/<button class="ghost" onclick="deleteSession\((\d+)\)">Delete<\/button>/g,(_,t)=>'<div><button class="ghost" onclick="editHistorySession('+t+')">Edit note</button> <button class="ghost" onclick="deleteSession('+t+')">Delete</button></div>')}
+function setBodyGoal(){const n=Number(prompt('Target body weight in kg',db.settings.goal||88.9));if(n>20&&n<400){db.settings.goal=n;save();render()}}
+const oldProgress=progress;
+progress=function(){let s=db.sessions.filter(x=>x.type==='strength'),volume=s.map(x=>({date:x.date,v:x.exercises.reduce((sum,e)=>sum+e.sets.filter(z=>z.done).reduce((a,z)=>a+(Number(z.kg)||0)*(Number(z.reps)||0),0),0)}));let latest=db.body.at(-1)?.kg,goal=db.settings.goal||88.9;return oldProgress().replace('<div class="card"><h3>TRAINING ANALYSIS</h3>', '<div class="card"><div class="split"><h3>BODY WEIGHT GOAL</h3><button class="ghost" onclick="setBodyGoal()">Edit goal</button></div><div class="stat">'+goal+' kg</div><p class="muted">'+(latest?(latest-goal>0?(latest-goal).toFixed(1)+' kg to target':'Target reached or exceeded'):'Log a weight to see progress')+'</p></div><div class="card"><h3>TRAINING ANALYSIS</h3>').replace('<p class="muted">'+(db.sessions.length?'___':'___')+'</p>','')};
+function exportCSV(){const rows=[['date','plan','exercise','set','kg','reps','completed']];db.sessions.forEach(s=>s.exercises.forEach(e=>e.sets.forEach((z,i)=>rows.push([s.date,s.plan,names[e.id]||e.id,i+1,z.kg,z.reps,z.done]))));const csv=rows.map(r=>r.map(x=>'"'+String(x??'').replace(/"/g,'""')+'"').join(',')).join('\r\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='garage-sessions-'+date()+'.csv';a.click()}
+const oldSettings=settings;
+settings=function(){return oldSettings().replace('<label>Restore a backup</label>','<p><button class="btn secondary" onclick="exportCSV()">EXPORT WORKOUT CSV</button></p><label>Restore a backup</label>')}
+function addCustomExercise(){let name=prompt('Exercise name');if(!name?.trim())return;let id='exercise'+Date.now();names[id]=name.trim();info[id]=['Use controlled form and full comfortable range of motion.','Check technique before increasing load.'];db.customExercises=db.customExercises||{};db.customExercises[id]={name:names[id],info:info[id]};save();render()}
+Object.entries(db.customExercises||{}).forEach(([id,e])=>{names[id]=e.name;info[id]=e.info});
+const oldPlans=plans;
+plans=function(){return oldPlans()+'<p><button class="btn secondary" onclick="addCustomExercise()">+ Add exercise to library</button></p>'}
+
 render();if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
 </script></body></html>
