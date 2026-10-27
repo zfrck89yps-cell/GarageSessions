@@ -288,5 +288,43 @@ const priorLibraryPage=libraryPage;
 libraryPage=function(){const html=priorLibraryPage();const options=['All','Dumbbell','Barbell','Body only','Machine','Cable','Kettlebell','Bands','Other'];return html.replace('<div id="libraryresults">','<label>Equipment</label><select onchange="libraryEquipment=this.value;render()">'+options.map(o=>'<option '+(libraryEquipment===o?'selected':'')+'>'+o+'</option>').join('')+'</select><p class="muted">'+importedExercises.length+' imported exercises, plus Garage Sessions originals. Some require equipment you may not own.</p><div id="libraryresults">')};
 libraryResults=function(){const q=librarySearch.toLowerCase().trim();const filtered=exerciseCatalog.filter(([id,cat,eq])=>(libraryFilter==='All'||cat===libraryFilter)&&(libraryEquipment==='All'||(eq||'').toLowerCase().includes(libraryEquipment.toLowerCase()))&&(!q||names[id].toLowerCase().includes(q)));return filtered.slice(0,80).map(([id,cat,eq])=>'<div class="card"><div class="split"><div><h3>'+esc(names[id])+'</h3><small>'+esc(cat)+' · '+esc(eq)+'</small></div><button class="ghost" onclick="showInfo(\''+id+'\')">ⓘ</button></div><button class="btn secondary" onclick="addToPlanFromLibrary(\''+id+'\')">+ Add to plan</button></div>').join('')+(filtered.length>80?'<p class="muted">Showing first 80 of '+filtered.length+' matches. Search or filter to narrow the results.</p>':'')||'<p>No matching exercises.</p>'};
 
+
+/* Cardio equipment catalogue and duration/distance tracking. */
+const cardioMachines=[
+['treadmill','Treadmill run / walk','Gym treadmill','Walk or run at a manageable pace. Use the safety clip, warm up and cool down.'],
+['elliptical','Cross trainer / elliptical','Gym elliptical','Keep feet planted on pedals, maintain a steady posture and adjust resistance gradually.'],
+['rowerg','Rowing machine','Rowing ergometer','Drive through legs, lean back slightly, then finish with arms. Reverse the sequence to return.'],
+['stairclimber','Stair climber / StairMaster','Gym stair climber','Stay upright, step smoothly and avoid leaning your weight on the handles.'],
+['uprightcycle','Upright exercise bike','Gym exercise bike','Set saddle height to maintain a slight knee bend at the bottom of the stroke.'],
+['recumbentcycle','Recumbent bike','Gym recumbent bike','Adjust seat distance for comfortable knee extension; pedal smoothly.'],
+['airbike','Air bike / assault bike','Air resistance bike','Coordinate arms and legs at a steady pace, then adjust effort gradually.'],
+['skierg','SkiErg','Ski ergometer','Start with arms high, hinge at hips and pull handles down smoothly; avoid rounding excessively.'],
+['arc','Arc trainer','Gym arc trainer','Keep an upright posture and move smoothly through the pedal path.'],
+['walking','Outdoor walking','Outdoors','Walk at a comfortable, sustainable pace. Track time and distance.'],
+['running','Outdoor running','Outdoors','Build pace gradually and choose a comfortable route. Track time and distance.'],
+['rucking','Rucking (weighted vest)','Weighted vest / outdoors','Wear a well-fitting weighted vest, begin with a light load and short walk, maintain upright posture and build gradually.']
+];
+const cardioIds=new Set(['bike',...cardioMachines.map(x=>x[0])]);
+const cardioDefaults={};
+for(const [id,name,equipment,how] of cardioMachines){names[id]=name;info[id]=[how,'Record duration (minutes), distance (km) and optional resistance / vest weight.'];exerciseCatalog.push([id,'Cardio',equipment]);cardioDefaults[id]=how}
+function isCardioExercise(id){return cardioIds.has(id)}
+const previousImportedInfoCardio=showInfo;
+showInfo=function(id){if(cardioDefaults[id]){document.querySelector('#modalbody').innerHTML='<h2>'+esc(names[id])+'</h2><h3>Technique and setup</h3><p>'+esc(cardioDefaults[id])+'</p><h3>What to record</h3><p>Duration in minutes, distance in kilometres and, where useful, resistance level or vest weight in kilograms.</p>';document.querySelector('#modal').showModal();return}previousImportedInfoCardio(id)};
+const priorAddToPlanCardio=addToPlanFromLibrary;
+addToPlanFromLibrary=function(id){if(!isCardioExercise(id))return priorAddToPlanCardio(id);const answer=prompt('Add '+names[id]+' to which plan?\n'+db.plans.map((p,i)=>(i+1)+': '+p.name).join('\n')+'\nEnter plan number');if(answer===null)return;const p=db.plans[Number(answer)-1];if(!p)return alert('Choose a valid plan number.');p.ex.push([id,15,30]);save();render()};
+const previousWorkoutCardio=workout;
+workout=function(){
+if(!db.draft)return previousWorkoutCardio();
+const d=db.draft,p=plan(d.plan);
+if(!d.exercises.some(e=>isCardioExercise(e.id)))return previousWorkoutCardio();
+return '<div class="split"><h1>'+esc(p.name)+'</h1><button class="ghost" onclick="cancelWorkout()">Exit</button></div><p class="muted">'+fmt(d.date)+' · Record cardio in minutes and kilometres</p>'+d.exercises.map((e,i)=>{
+if(isCardioExercise(e.id)){const s=e.sets[0]||{};const minutes=s.minutes??s.reps??0;const km=s.km??'';const extra=s.extra??(e.id==='bike'?s.kg:'');return '<div class="card"><div class="split"><h3>'+(i+1)+'. '+esc(names[e.id])+'</h3><button class="ghost" onclick="showInfo(\''+e.id+'\')">ⓘ</button></div><div class="grid"><div><label>Time (minutes)</label><input type="number" min="0" step="0.5" value="'+esc(minutes)+'" onchange="setCardioField('+i+',\'minutes\',this.value)"></div><div><label>Distance (km)</label><input type="number" min="0" step=".01" placeholder="Optional" value="'+esc(km)+'" onchange="setCardioField('+i+',\'km\',this.value)"></div></div><div style="margin-top:14px"><label>'+(e.id==='rucking'?'Vest weight (kg)':'Resistance / level (optional)')+'</label><input type="number" min="0" step=".5" value="'+esc(extra)+'" placeholder="Optional" onchange="setCardioField('+i+',\'extra\',this.value)"></div><p><label><input type="checkbox" '+(s.done?'checked':'')+' onchange="setCardioField('+i+',\'done\',this.checked)"> Completed</label></p></div>'}
+return '<div class="card"><div class="split"><h3>'+(i+1)+'. '+esc(names[e.id]||e.id)+'</h3><button class="ghost" onclick="showInfo(\''+e.id+'\')">ⓘ</button></div><small>Target: '+e.min+'–'+e.max+' reps</small>'+e.sets.map((s,j)=>'<div class="setrow"><span>'+(j+1)+'</span><input aria-label="Weight in kilograms" type="number" min="0" step=".5" value="'+esc(s.kg)+'" onchange="setField('+i+','+j+',\'kg\',this.value)"><input aria-label="Repetitions" type="number" min="0" value="'+esc(s.reps)+'" onchange="setField('+i+','+j+',\'reps\',this.value)"><input aria-label="Set complete" type="checkbox" '+(s.done?'checked':'')+' onchange="setField('+i+','+j+',\'done\',this.checked)"></div>').join('')+'<button class="ghost" onclick="addSet('+i+')">+ Set</button> <button class="ghost" onclick="removeSet('+i+')">− Set</button></div>'
+}).join('')+'<div class="card"><h3>SESSION NOTES</h3><textarea rows="4" oninput="db.draft.notes=this.value;save()">'+esc(d.notes)+'</textarea></div><button class="btn" style="width:100%" onclick="finish()">FINISH & SAVE SESSION →</button>';
+};
+function setCardioField(i,key,value){const e=db.draft.exercises[i];if(!e.sets.length)e.sets=[{kg:0,reps:0,done:false}];const s=e.sets[0];s[key]=key==='done'?value:value===''?null:Number(value);if(key==='minutes')s.reps=s.minutes??0;if(key==='extra'&&e.id==='bike')s.kg=s.extra??0;save()}
+const oldFinishCardio=finish;
+finish=function(){if(db.draft){for(const e of db.draft.exercises){if(isCardioExercise(e.id)){const s=e.sets[0];if(s&&s.done){s.minutes=s.minutes??s.reps??0;s.km=s.km??null;s.extra=s.extra??(e.id==='bike'?s.kg:null)}}}}return oldFinishCardio()};
+
 render();if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
 </script></body></html>
