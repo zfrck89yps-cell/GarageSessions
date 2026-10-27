@@ -406,13 +406,12 @@ const oldCardioAddOwn=addToPlanFromLibrary;
 addToPlanFromLibrary=function(id){if(!timeOnlyExercise(id))return oldCardioAddOwn(id);if(!db.plans.length)return alert('Create a workout first.');const answer=prompt('Add '+names[id]+' to which workout?\n'+db.plans.map((p,i)=>(i+1)+': '+p.name).join('\n'));if(answer===null)return;const p=db.plans[Number(answer)-1];if(!p)return alert('Invalid workout number');p.ex.push([id,15,30]);save();render()};
 const oldWorkoutOwn=workout;
 workout=function(){let h=oldWorkoutOwn();if(!db.draft)return h;for(const [i,e] of db.draft.exercises.entries()){if(!timeOnlyExercise(e.id))continue;const s=e.sets[0]||{},minutes=s.minutes??s.reps??0;const pattern='<div class="card"><div class="split"><h3>'+(i+1)+'. '+esc(names[e.id])+'</h3>';
-const at=h.indexOf(pattern);if(at<0)continue;const end=h.indexOf('</div>',h.indexOf('Completed</label>',at));if(end<0)continue;const replacement='<div class="card"><div class="split"><h3>'+(i+1)+'. '+esc(names[e.id])+'</h3><button class="ghost" onclick="showInfo(\''+e.id+'\')">ⓘ</button></div><label>Duration (minutes)</label><input type="number" min="0" step=".5" value="'+esc(minutes)+'" onchange="setCardioField('+i+',\'minutes\',this.value)"><p><label><input type="checkbox" '+(s.done?'checked':'')+' onchange="setCardioField('+i+',\'done\',this.checked)"> Completed</label></p></div>';
+const at=h.indexOf(pattern);if(at<0)continue;const completedAt=h.indexOf('Completed</label>',at);if(completedAt<0)continue;const end=h.indexOf('</div>',completedAt);if(end<0)continue;const replacement='<div class="card"><div class="split"><h3>'+(i+1)+'. '+esc(names[e.id])+'</h3><button class="ghost" onclick="showInfo(\''+e.id+'\')">ⓘ</button></div><label>Duration (minutes)</label><input type="number" min="0" step=".5" value="'+esc(minutes)+'" onchange="setCardioField('+i+',\'minutes\',this.value)"><p><label><input type="checkbox" '+(s.done?'checked':'')+' onchange="setCardioField('+i+',\'done\',this.checked)"> Completed</label></p></div>';
 h=h.slice(0,at)+replacement+h.slice(end+6)}
 return h};
 const oldCardioChartPointsOwn=cardioChartPoints;
 cardioChartPoints=function(id,metric){if(timeOnlyExercise(id)&&metric!=='duration')return [];return oldCardioChartPointsOwn(id,metric)};
-const oldProgressOwn=progress;
-progress=function(){let h=oldProgressOwn();if(cardioChartExercise&&timeOnlyExercise(cardioChartExercise))h=h.replace('<option value="duration"','<option value="duration"');return h};
+
 
 render();if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
 </script></body></html>
