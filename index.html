@@ -26,6 +26,65 @@ header .pill button{max-width:100%}
  .card .split>button{margin-left:auto}
  .card .split+button,.card .split+.btn{display:inline-flex;align-items:center;justify-content:center;margin-top:16px}
 }
+
+/* Layout audit: consistent touch targets, spacing, wrapping and mobile form widths. */
+:root{--space:12px;--tap:44px}
+html{overflow-x:hidden}
+body{width:100%;overflow-x:hidden;padding-bottom:calc(92px + env(safe-area-inset-bottom))}
+main{min-width:0}
+main>h1,main>.split{margin-top:16px}
+main>.split{align-items:flex-start;flex-wrap:wrap;row-gap:12px}
+main>.split>h1{flex:1 1 175px;min-width:0;margin:0;overflow-wrap:anywhere}
+main>.split>button{flex:0 0 auto}
+h1,h2,h3,p{overflow-wrap:break-word}
+.card{width:100%;min-width:0;overflow-wrap:anywhere}
+.card>.split{align-items:center}
+.card .split>div{min-width:0;flex:1 1 150px}
+.card .split>div:last-child:has(>button){display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
+.card .split>div:last-child:has(>button)>button{margin:0}
+.card .split>button{margin:0}
+.card .split+button,.card .split+.btn{margin-top:14px}
+.card>.btn,.card>.ghost{margin-top:8px}
+.card .split>h2,.card .split>h3{min-width:0;flex:1 1 160px;margin:0}
+.card .split>h3+button{flex:0 0 auto}
+button,.btn,.ghost{min-height:var(--tap);line-height:1.25;white-space:normal;overflow-wrap:anywhere;text-align:center}
+button{touch-action:manipulation}
+input,select,textarea{max-width:100%;min-width:0;font-size:16px}
+input[type=checkbox]{min-width:18px;min-height:18px;vertical-align:middle}
+label:has(>input[type=checkbox]){display:flex;align-items:center;gap:10px}
+.grid{width:100%;min-width:0}
+.grid>div{min-width:0}
+.setrow{grid-template-columns:28px minmax(0,1fr) minmax(0,1fr) 42px;gap:6px}
+.setrow input[type=number]{padding:10px 5px;min-width:0}
+.setrow input[type=checkbox]{justify-self:center}
+canvas{display:block;max-width:100%}
+nav{gap:2px;justify-content:space-between}
+nav button{flex:1 1 0;min-width:0;min-height:44px;padding:9px 3px;font-size:clamp(.68rem,2.7vw,.85rem)}
+dialog{width:min(92vw,500px);max-height:85dvh;overflow-y:auto}
+header{gap:10px;flex-wrap:wrap}
+header .brand{min-width:0;overflow-wrap:anywhere}
+@media(max-width:520px){
+ body{padding:18px 12px calc(96px + env(safe-area-inset-bottom))}
+ h1{font-size:clamp(1.7rem,8vw,2.3rem)}
+ .card{padding:16px 14px}
+ .card .split{gap:10px}
+ .card .split>div{flex:1 1 140px}
+ .card .split>button{margin-left:0}
+ .card .split>select{flex:1 1 150px;width:100%!important}
+ .card .grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .card .grid input,.card .grid select{width:100%;font-size:16px;padding:10px 7px}
+ .card>.split:has(>h2):has(>button){align-items:center}
+ .card>.split:has(>h2)>button{flex:1 1 150px}
+ .card>.split:has(>h3)>button{flex:0 1 auto}
+ .card .split>div:last-child:has(>button){flex:1 1 100%;justify-content:flex-start}
+ header .pill{max-width:44%;font-size:.66rem}
+}
+@media(max-width:360px){
+ .card .grid{grid-template-columns:minmax(0,1fr)}
+ .card .split>button{flex:1 1 auto}
+ .setrow{grid-template-columns:24px minmax(0,1fr) minmax(0,1fr) 36px;gap:4px}
+}
+
 </style></head><body><header><div class="brand">G<span>Ƨ</span> GARAGE SESSIONS</div><span class="pill">YOUR TRAINING SPACE</span></header><main id="app"></main><nav id="nav"></nav><dialog id="modal"><div id="modalbody"></div><p><button class="btn secondary" onclick="document.querySelector('#modal').close()">Close</button></p></dialog><script src="exercise-db.js"></script><script>
 const KEY='garage-sessions-v1', names={squat:'Goblet squat',press:'Dumbbell floor press',row:'Bent-over dumbbell row',rdl:'Dumbbell Romanian deadlift',pallof:'Pallof press',step:'Step-ups',push:'Incline press-ups',bandrow:'Resistance-band row',bridge:'Glute bridge',deadbug:'Dead bug',bike:'Spin bike',suitcase:'Dumbbell bench pullover',inclinepress:'Incline dumbbell bench press',flatpress:'Flat dumbbell bench press',benchrow:'Bench-supported one-arm dumbbell row',barbellrdl:'Standard-bar Romanian deadlift',inclinecurl:'Incline dumbbell curl'};
 const info={squat:['Hold a dumbbell at chest height. Sit between your hips, keep heels grounded and stand tall.','Keep knees tracking over toes; use pain-free depth.'],press:['Lie on the floor with knees bent. Press dumbbells up and lower under control until upper arms touch the floor.','Keep wrists stacked above elbows; avoid bouncing.'],row:['Hinge at hips with a neutral back. Pull dumbbells towards your hips.','Keep shoulders down and avoid jerking.'],rdl:['With soft knees, push hips backwards and keep dumbbells close to legs. Stand by driving hips forwards.','Stop before your back rounds.'],pallof:['Anchor band securely at chest height. Stand side-on and press hands straight out, resisting rotation.','Do not use an unstable anchor.'],step:['Step onto a low, stable platform and lower slowly.','Keep knee aligned; reduce height if uncomfortable.'],push:['Hands on a solid raised surface, lower chest towards hands and push up.','Keep a straight line from head to heel; no slippery step.'],bandrow:['Anchor band securely and pull handles to ribs while drawing shoulder blades back.','Inspect band for damage before each use.'],bridge:['Lie on back with knees bent, drive through heels and lift hips.','Avoid overextending lower back.'],deadbug:['Lie on back, arms and knees raised; extend opposite arm and leg without arching back.','Move slowly, shorten range if back lifts.'],bike:['Ride comfortably upright with knees slightly bent at bottom of pedal stroke.','Start easy; intervals are brisk, not all-out.'],inclinepress:['Set the FID bench to a low incline (about 15–30 degrees). With a dumbbell in each hand, press upwards and lower slowly.','Keep feet planted and wrists stacked. Start light; do not use a barbell without a suitable rack and safeties.'],flatpress:['Set the FID bench flat and press two dumbbells above the chest, lowering under control.','Keep shoulder blades gently drawn back, feet grounded and wrists neutral.'],benchrow:['Set the FID bench flat or low incline. Support one hand and knee on the bench, row the opposite dumbbell towards the hip. Switch sides.','Avoid twisting; ensure the bench is locked and stable.'],barbellrdl:['With a standard bar held in front of thighs, soften knees, hinge hips backwards and lower the bar close to legs before standing tall.','Check the bar, plates and collars fit securely; verify bar load rating. Avoid lifting heavy until confirmed.'],suitcase:['Lie lengthways on your flat, locked FID bench with feet planted. Hold one light dumbbell securely with both hands above your chest, elbows slightly bent. Lower slowly behind your head only as far as your shoulders comfortably allow, then return.','Start very light, keep ribs down and do not force shoulder range. Check the dumbbell is secure. No band anchor or walking required.'],inclinecurl:['Set the bench to a moderate incline, let dumbbells hang beside you and curl without swinging.','Keep shoulders stable; use light weights and control the lowering phase.']};
