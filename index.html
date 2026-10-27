@@ -651,25 +651,29 @@ function sessionElapsed(d,now=Date.now()){
  return Math.max(0,(d.pausedAt||d.completed||now)-(d.started||now)-paused);
 }
 function clockText(ms){const n=Math.floor(ms/1000),h=Math.floor(n/3600),m=Math.floor(n%3600/60),s=n%60;return [h,m,s].map(v=>String(v).padStart(2,'0')).join(':')}
-function clockTick(){const el=document.getElementById('session-clock');if(el&&db.draft){el.textContent=clockText(sessionElapsed(db.draft));const state=document.getElementById('session-clock-state');if(state)state.textContent=db.draft.pausedAt?'PAUSED':'RUNNING'}}
+function clockTick(){const el=document.getElementById('session-clock');if(el&&db.draft){el.textContent=db.draft.clockStarted?clockText(sessionElapsed(db.draft)):'00:00:00';const state=document.getElementById('session-clock-state');if(state)state.textContent=!db.draft.clockStarted?'READY':db.draft.pausedAt?'PAUSED':'RUNNING'}}
 function toggleSessionPause(){
- const d=db.draft;if(!d)return;
+ const d=db.draft;if(!d||!d.clockStarted)return;
  if(d.pausedAt){d.pausedMs=(Number(d.pausedMs)||0)+Math.max(0,Date.now()-d.pausedAt);d.pausedAt=null}
  else d.pausedAt=Date.now();
  save();render();
 }
 const sessionClockStart=start;
 start=function(id){sessionClockStart(id);if(db.draft){if(!db.draft.started)db.draft.started=Date.now();save()}clockTick()};
+function beginSessionClock(){if(!db.draft)return;const d=db.draft;d.started=Date.now();d.pausedAt=null;d.pausedMs=0;d.clockStarted=true;save();render()}
+const previousSessionClockStart=start;
+start=function(id){previousSessionClockStart(id);if(db.draft&&db.draft.clockStarted===undefined){db.draft.clockStarted=false;save()}};
 const sessionClockWorkout=workout;
 workout=function(){
  const h=sessionClockWorkout();if(!db.draft)return h;
  const d=db.draft;
- const controls='<div class="card" style="position:sticky;top:0;z-index:20;background:#151515;border-color:#404040;padding:12px 14px"><div class="split" style="gap:12px;flex-wrap:wrap"><div><small id="session-clock-state">'+(d.pausedAt?'PAUSED':'RUNNING')+'</small><div id="session-clock" role="timer" style="font-size:1.65rem;font-weight:850;font-variant-numeric:tabular-nums;color:#c6ff00">'+clockText(sessionElapsed(d))+'</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="ghost" onclick="toggleSessionPause()">'+(d.pausedAt?'RESUME':'PAUSE')+'</button><button class="btn" onclick="finish()">END & SAVE</button></div></div></div>';
- return controls+h;
+ const controls='<div class="card" style="position:fixed;bottom:calc(76px + env(safe-area-inset-bottom));left:12px;right:12px;max-width:736px;margin:0 auto;z-index:100;background:#151515;border-color:#404040;padding:12px 14px"><div class="split" style="gap:12px;flex-wrap:wrap"><div><small id="session-clock-state">'+(!d.clockStarted?'READY':d.pausedAt?'PAUSED':'RUNNING')+'</small><div id="session-clock" role="timer" style="font-size:1.65rem;font-weight:850;font-variant-numeric:tabular-nums;color:#c6ff00">'+(d.clockStarted?clockText(sessionElapsed(d)):'00:00:00')+'</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="ghost" onclick="toggleSessionPause()">'+(d.pausedAt?'RESUME':'PAUSE')+'</button><button class="btn" onclick="finish()">END & SAVE</button></div></div></div>';
+ return controls+'<div style="height:100px"></div>'+h;
 };
 const sessionClockFinish=finish;
 finish=function(){
  const d=db.draft;if(!d)return;
+ if(!d.clockStarted){d.started=Date.now();d.pausedMs=0;d.clockStarted=true}
  const finishedAt=d.pausedAt||Date.now();
  d.pausedMs=Number(d.pausedMs)||0;
  const oldCompleted=d.completed;
