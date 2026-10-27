@@ -341,8 +341,7 @@ return h+'<div class="card"><h3>CARDIO PROGRESS</h3><p class="muted">Only cardio
 function drawCardioChart(){const p=cardioChartPoints(cardioChartExercise,cardioChartMetric);drawSeries(document.querySelector('#cardiochart'),p,cardioChartMetric);const el=document.querySelector('#cardiostats');if(el){if(!p.length){el.innerHTML='<p class="muted">No recorded values for this measure yet.</p>';return}const first=p[0],last=p.at(-1),delta=last.v-first.v;const units={distance:'km',duration:'min',pace:'min/km',load:'kg / level'};el.innerHTML='<p><b>'+p.length+'</b> recorded sessions · Latest: <b>'+last.v.toFixed(2)+' '+units[cardioChartMetric]+'</b></p>'+(p.length>1?'<p class="muted">Change since first: '+(delta>0?'+':'')+delta.toFixed(2)+' '+units[cardioChartMetric]+(cardioChartMetric==='pace'?' (lower is faster)':'')+'</p>':'')}}
 const previousRenderCardioCharts=render;
 render=function(){previousRenderCardioCharts();if(tab==='progress')drawCardioChart()};
-const previousHistoryCardioCharts=history;
-history=function(){return previousHistoryCardioCharts().replace(/(<p class="muted">)([\s\S]*?)(<\/p>)/g,(all,a,body,z)=>all)};
+
 
 render();if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
 </script></body></html>
