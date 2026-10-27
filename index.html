@@ -235,7 +235,7 @@ const p=new Set(main.flatMap(m=>anatomyKeys[m]||[m])),s=new Set(secondary.flatMa
 const figure=(side,paths,deco)=>{
 const mir='matrix(-1 0 0 1 200 0)';
 const path=(d,fill,stroke,extra='')=>'<path d="'+d+'" fill="'+fill+'" stroke="'+stroke+'" stroke-width=".7" '+extra+'/>';
-let svg='<svg viewBox="0 0 200 432" style="width:49%;height:auto;max-height:330px" role="img" aria-label="'+side+' anatomical muscle map"><ellipse cx="100" cy="26" rx="15" ry="19" fill="#777"/>'+path(SIL,'#686868','#aaa')+path(SIL,'#686868','#aaa','transform="'+mir+'"');
+let svg='<svg viewBox="0 0 200 432" style="width:49%;height:auto;max-height:330px" role="img" aria-label="'+side+' anatomical muscle map"><ellipse cx="100" cy="24" rx="19" ry="24" fill="#777" stroke="#999" stroke-width=".8"/>'+path(SIL,'#686868','#aaa')+path(SIL,'#686868','#aaa','transform="'+mir+'"');
 for(const [id,d] of paths){const color=p.has(id)?'#c6ff00':s.has(id)?'#6d9c22':'#454545';svg+=path(d,color,'#171717')+path(d,color,'#171717','transform="'+mir+'"')}
 svg+=path(deco,'none','#202020')+path(deco,'none','#202020','transform="'+mir+'"')+'<text x="100" y="425" fill="#bbb" font-size="12" text-anchor="middle">'+side+'</text></svg>';return svg};
 return '<div style="display:flex;gap:4px;justify-content:center;background:#111;border-radius:12px;padding:6px">'+figure('FRONT',FRONT,FRONT_DECO)+figure('BACK',BACK,BACK_DECO)+'</div><p style="font-size:.85rem"><span style="color:#c6ff00">■</span> Main muscles &nbsp; <span style="color:#6d9c22">■</span> Supporting muscles</p>';
