@@ -989,6 +989,107 @@ workout=function(){
  return html;
 };
 
+
+/* Picker toggles: green means selected, tap again to remove. */
+function pickerSelected(id){
+ return pickerContext==='builder'?!!builder?.ex.some(x=>x[0]===id):pickerContext==='workout'?!!db.draft?.exercises.some(x=>x.id===id):false;
+}
+pickerAdd=function(id){
+ if(pickerContext==='builder'&&builder){
+  const index=builder.ex.findIndex(x=>x[0]===id);
+  if(index>=0)builderRemoveExercise(index);
+  else builder.ex.push([id,isCardioExercise(id)?15:8,isCardioExercise(id)?30:12]);
+ }else if(pickerContext==='workout'&&db.draft){
+  const index=db.draft.exercises.findIndex(x=>x.id===id);
+  if(index>=0)db.draft.exercises.splice(index,1);
+  else{
+   const cardio=isCardioExercise(id);
+   db.draft.exercises.push({id,min:cardio?15:8,max:cardio?30:12,sets:Array.from({length:cardio?1:db.settings.sets},()=>({kg:0,reps:cardio?15:8,done:false})),addedAdhoc:true});
+  }
+  save();
+ }
+ const results=document.querySelector('#pickerresults');
+ if(results)results.innerHTML=pickerResults();
+ const status=document.querySelector('#pickerstatus');
+ if(status)status.textContent=(pickerSelected(id)?'Added ':'Removed ')+(names[id]||id);
+};
+pickerResults=function(){
+ const q=pickerQuery.trim().toLowerCase();
+ const rows=exerciseCatalog.filter(([id,cat,eq])=>(pickerCategory==='All'||cat===pickerCategory)&&(pickerEquipment==='All'||String(eq||'').toLowerCase().includes(pickerEquipment.toLowerCase()))&&(!q||names[id]?.toLowerCase().includes(q)));
+ return rows.slice(0,80).map(([id,cat,eq])=>{
+  const selected=pickerSelected(id);
+  return '<div class="card"><div class="split"><div style="flex:1 1 160px"><h3>'+esc(names[id]||id)+'</h3><small>'+esc(cat)+' · '+esc(eq)+'</small></div><button class="ghost" onclick="showInfo(\''+id+'\')">ⓘ Details</button><button class="'+(selected?'btn':'ghost')+'" style="'+(selected?'background:#c6ff00;color:#111;border-color:#c6ff00':'')+'" aria-pressed="'+selected+'" onclick="pickerAdd(\''+id+'\')">'+(selected?'✓ Added':' + Add')+'</button></div></div>';
+ }).join('')+(rows.length>80?'<p class="muted">Showing 80 of '+rows.length+'. Search to narrow results.</p>':'')||'<p>No matching exercises.</p>';
+};
+/* Round-first layout: show each grouped exercise's single set in sequence. */
+const previousRoundLayout=workout;
+workout=function(){
+ const html=previousRoundLayout();
+ if(!db.draft)return html;
+ const container=document.createElement('div');
+ container.innerHTML=html;
+ const grouped=new Set(),ordered=[];
+ const all=db.draft.exercises;
+ const groups=[...new Set(all.map(e=>e.superset).filter(Boolean))].sort();
+ for(const group of groups){
+  const indices=all.map((e,i)=>e.superset===group?i:-1).filter(i=>i>=0);
+  if(indices.length<2)continue;
+  indices.forEach(i=>grouped.add(i));
+  const maxRounds=Math.max(...indices.map(i=>all[i].sets.length));
+  const section=document.createElement('section');
+  section.className='card';
+  section.style.borderColor='#c6ff00';
+  section.innerHTML='<h2>SUPERSET '+group+'</h2><p class="muted">Complete each exercise in order, then rest after the round.</p>';
+  for(let round=0;round<maxRounds;round++){
+   const heading=document.createElement('h3');
+   heading.style.marginTop='20px';
+   heading.textContent='ROUND '+(round+1);
+   section.appendChild(heading);
+   for(const i of indices){
+    if(round>=all[i].sets.length)continue;
+    const source=container.querySelector('#exercise-'+i);
+    if(!source)continue;
+    const card=source.cloneNode(true);
+    card.removeAttribute('id');
+    card.style.border='1px solid #444';
+    card.style.marginBottom='10px';
+    const rows=[...card.querySelectorAll('.setrow:not(.tiny)')];
+    rows.forEach((row,j)=>{if(j!==round)row.remove()});
+    const labels=card.querySelector('.setrow.tiny');
+    if(labels)labels.remove();
+    if(round>0){
+     card.querySelectorAll('.hint').forEach(el=>el.remove());
+     card.querySelectorAll('div[style*="border-left"]').forEach(el=>el.remove());
+     card.querySelectorAll('select').forEach(el=>el.closest('div[style*="grid-template-columns"]')?.remove());
+    }
+    const buttons=[...card.querySelectorAll('button')];
+    buttons.forEach(button=>{if(button.textContent.trim()==='+ Set'||button.textContent.trim()==='− Set')button.remove()});
+    const marker=document.createElement('small');
+    marker.textContent='SET '+(round+1);
+    card.insertBefore(marker,card.firstChild);
+    section.appendChild(card);
+   }
+   if(round<maxRounds-1){
+    const rest=document.createElement('div');
+    rest.style.cssText='padding:14px;text-align:center;background:#252525;border-radius:10px;margin:12px 0;color:#c6ff00;font-weight:700';
+    rest.textContent='REST · Then start round '+(round+2);
+    section.appendChild(rest);
+   }
+  }
+  ordered.push(section.outerHTML);
+ }
+ if(!ordered.length)return html;
+ for(const i of grouped)container.querySelector('#exercise-'+i)?.remove();
+ container.querySelectorAll('.card').forEach(card=>{
+  if(card.querySelector('h3')?.textContent?.startsWith('GROUP ')&&card.querySelector('button[onclick*="nextSupersetExercise"]'))card.remove();
+ });
+ const title=[...container.querySelectorAll('h1')].find(x=>x.textContent.trim().length);
+ const position=title?.closest('.split');
+ if(position)position.insertAdjacentHTML('afterend',ordered.join(''));
+ else container.insertAdjacentHTML('beforeend',ordered.join(''));
+ return container.innerHTML;
+};
+
 setInterval(clockTick,1000);
 
 render();if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
