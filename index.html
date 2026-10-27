@@ -131,11 +131,11 @@ main>h1{margin-top:14px}
 .schedule-entry span{color:#aaa}
 @media(max-width:520px){.plan-actions{grid-template-columns:minmax(0,1fr)}}
 
-/* Safari exercise-details fix: fixed viewport overlay with independent top scroll. */
-#modal[open]{position:fixed!important;inset:0!important;top:0!important;left:0!important;right:0!important;bottom:0!important;transform:none!important;margin:0!important;width:100vw!important;max-width:none!important;height:100dvh!important;max-height:100dvh!important;padding:calc(env(safe-area-inset-top) + 12px) 14px calc(env(safe-area-inset-bottom) + 16px)!important;border:0!important;border-radius:0!important;background:#000!important;overflow-y:auto!important;overscroll-behavior:contain;z-index:9999}
-#modal[open] #modalbody{background:#1a1a1a;border:1px solid #393939;border-radius:16px 16px 0 0;padding:20px 18px 10px}
-#modal[open]>p:last-child{position:sticky;bottom:0;background:#1a1a1a;border:1px solid #393939;border-top:0;border-radius:0 0 16px 16px;margin:0;padding:12px 18px 18px}
-#modal[open] a{overflow-wrap:anywhere}
+/* Details modal: use the browser's native top layer, centered within the viewport. */
+#modal[open]{position:fixed!important;inset:0!important;margin:auto!important;width:min(94vw,540px)!important;max-width:540px!important;height:auto!important;max-height:calc(100dvh - 32px)!important;padding:18px!important;border:1px solid #444!important;border-radius:16px!important;background:#1a1a1a!important;overflow-y:auto!important;overscroll-behavior:contain;z-index:9999}
+#modal[open] #modalbody{padding:0!important;border:0!important;background:transparent!important}
+#modal[open]>p:last-child{position:sticky;bottom:-18px;background:#1a1a1a;padding:12px 0 0!important;margin:12px 0 0!important;border:0!important}
+#modal::backdrop{background:rgba(0,0,0,.85)}
 body:has(#modal[open]){overflow:hidden}
 
 .brand{display:flex;align-items:center;gap:10px;font-size:initial;letter-spacing:normal}.brandmark{display:block;width:48px;height:48px;flex:none}.brandwords{display:flex;flex-direction:column;line-height:1;gap:5px}.brandwords strong{font-size:clamp(1.1rem,5vw,1.55rem);font-weight:1000;letter-spacing:-.045em;color:#f4f4f4}.brandwords small{font-size:.65rem;letter-spacing:.46em;color:#f4f4f4;font-weight:600}.brandwords span{color:inherit}@media(max-width:360px){.brandmark{width:42px;height:42px}.brandwords small{letter-spacing:.3em}}
@@ -399,7 +399,7 @@ showInfo=function(id){if(importedById[id])return importedInfo(id);const c=coachi
 let libraryEquipment='All';
 const priorLibraryPage=libraryPage;
 libraryPage=function(){const html=priorLibraryPage();const options=['All','Dumbbell','Barbell','Body only','Machine','Cable','Kettlebell','Bands','Other'];return html.replace('<div id="libraryresults">','<label>Equipment</label><select onchange="libraryEquipment=this.value;render()">'+options.map(o=>'<option '+(libraryEquipment===o?'selected':'')+'>'+o+'</option>').join('')+'</select><p class="muted">'+importedExercises.length+' imported exercises, plus Garage Sessions originals. Some require equipment you may not own.</p><div id="libraryresults">')};
-libraryResults=function(){const q=librarySearch.toLowerCase().trim();const filtered=exerciseCatalog.filter(([id,cat,eq])=>(libraryFilter==='All'||cat===libraryFilter)&&(libraryEquipment==='All'||(eq||'').toLowerCase().includes(libraryEquipment.toLowerCase()))&&(!q||names[id].toLowerCase().includes(q)));return filtered.slice(0,80).map(([id,cat,eq])=>'<div class="card"><div class="split"><div><h3>'+esc(names[id])+'</h3><small>'+esc(cat)+' · '+esc(eq)+'</small></div><button class="ghost" onclick="showInfo(\''+id+'\')">ⓘ</button></div><button class="btn secondary" onclick="addToPlanFromLibrary(\''+id+'\')">+ Add to plan</button></div>').join('')+(filtered.length>80?'<p class="muted">Showing first 80 of '+filtered.length+' matches. Search or filter to narrow the results.</p>':'')||'<p>No matching exercises.</p>'};
+libraryResults=function(){const q=librarySearch.toLowerCase().trim();const filtered=exerciseCatalog.filter(([id,cat,eq])=>(libraryFilter==='All'||cat===libraryFilter)&&(libraryEquipment==='All'||(eq||'').toLowerCase().includes(libraryEquipment.toLowerCase()))&&(!q||names[id].toLowerCase().includes(q)));return filtered.slice(0,80).map(([id,cat,eq])=>'<div class="card"><div class="split"><div><h3>'+esc(names[id])+'</h3><small>'+esc(cat)+' · '+esc(eq)+(id==='deadbug'?' · Garage Sessions original':id.startsWith('fedb_')?' · Exercise database':'')+'</small></div><button class="ghost" onclick="showInfo(\''+id+'\')">ⓘ</button></div><button class="btn secondary" onclick="addToPlanFromLibrary(\''+id+'\')">+ Add to plan</button></div>').join('')+(filtered.length>80?'<p class="muted">Showing first 80 of '+filtered.length+' matches. Search or filter to narrow the results.</p>':'')||'<p>No matching exercises.</p>'};
 
 
 /* Cardio equipment catalogue and duration/distance tracking. */
@@ -638,7 +638,7 @@ settings=function(){return previousSettingsNoProgramme().replace(/<div class="ca
 
 /* Force exercise details to start at the beginning on iOS Safari. */
 const showInfoViewport=showInfo;
-showInfo=function(id){showInfoViewport(id);const dialog=document.querySelector('#modal');if(dialog){dialog.scrollTop=0;dialog.style.removeProperty('top');dialog.style.removeProperty('bottom');dialog.style.removeProperty('margin-top');dialog.style.removeProperty('margin-bottom');dialog.scrollTo?.(0,0)}};
+showInfo=function(id){showInfoViewport(id);const dialog=document.querySelector('#modal');if(dialog){dialog.scrollTop=0;dialog.style.removeProperty('top');dialog.style.removeProperty('bottom');dialog.style.removeProperty('margin-top');dialog.style.removeProperty('margin-bottom');dialog.scrollTo?.(0,0);document.activeElement?.blur?.();requestAnimationFrame(()=>{dialog.scrollTop=0;dialog.scrollTo?.(0,0)})}};
 
 render();if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
 </script></body></html>
