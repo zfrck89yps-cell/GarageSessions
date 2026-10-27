@@ -372,5 +372,47 @@ addToPlanFromLibrary=function(id){if(!db.plans.length){alert('Create a saved wor
 const oldWorkoutSelfPlanner=workout;
 workout=function(){let h=oldWorkoutSelfPlanner();if(!db.draft)return h;const controls='<div class="card"><h3>CHANGE TODAY\'S SESSION</h3><button class="btn secondary" onclick="addExerciseToDraft()">+ ADD EXERCISE</button>'+db.draft.exercises.map((e,i)=>'<div class="split"><small>'+esc(names[e.id]||e.id)+'</small><button class="ghost" onclick="removeDraftExercise('+i+')">Remove</button></div>').join('')+'</div>';return h.replace('<div class="card"><h3>SESSION NOTES</h3>',controls+'<div class="card"><h3>SESSION NOTES</h3>')};
 
+
+/* Yoga and personally created exercises, scoped to the active local profile. */
+const yogaId='yoga';
+names[yogaId]='Yoga';
+cardioIds.add(yogaId);
+exerciseCatalog.push([yogaId,'Mind & Body','Mat / no equipment']);
+function ownExercises(){if(!db.customExercises)db.customExercises=[];return db.customExercises}
+function syncOwnExercises(){for(let i=exerciseCatalog.length-1;i>=0;i--)if(exerciseCatalog[i][0].startsWith('own-'))exerciseCatalog.splice(i,1);for(const id of Object.keys(names))if(id.startsWith('own-')){delete names[id];delete info[id];cardioIds.delete(id)}for(const e of ownExercises()){names[e.id]=e.name;info[e.id]=[e.instructions||'Your own exercise.',e.tips||''];exerciseCatalog.push([e.id,e.category||'Custom',e.equipment||'Personal']);if(e.tracking==='time')cardioIds.add(e.id)}}
+syncOwnExercises();
+const oldSwitchOwn=switchProfile;
+switchProfile=function(id){oldSwitchOwn(id);syncOwnExercises();render()};
+function createOwnExercise(){
+const name=prompt('Name your exercise');if(!name?.trim())return;
+const tracking=prompt('How do you want to track it? Enter TIME for minutes only, CARDIO for time and distance, or REPS for sets, reps and weight.','REPS');if(tracking===null)return;
+const mode=tracking.trim().toLowerCase();if(!['time','cardio','reps'].includes(mode))return alert('Choose TIME, CARDIO or REPS.');
+const category=prompt('Category (e.g. Legs, Core, Cardio, Yoga, Mobility)','Custom');if(category===null)return;
+const equipment=prompt('Equipment (optional)','');if(equipment===null)return;
+const instructions=prompt('How to perform it / your own notes (optional)','');if(instructions===null)return;
+const e={id:'own-'+Date.now(),name:name.trim().slice(0,90),tracking:mode,category:category.trim()||'Custom',equipment:equipment.trim()||'Personal',instructions:instructions.trim(),tips:''};
+ownExercises().push(e);syncOwnExercises();save();render();
+}
+function deleteOwnExercise(id){const e=ownExercises().find(x=>x.id===id);if(!e||!confirm('Delete '+e.name+' from your library? Existing workout history will be kept.'))return;db.customExercises=db.customExercises.filter(x=>x.id!==id);syncOwnExercises();save();render()}
+function timeOnlyExercise(id){return id===yoga||ownExercises().some(e=>e.id===id&&e.tracking==='time')}
+function distanceExercise(id){return isCardioExercise(id)&&!timeOnlyExercise(id)}
+const oldShowOwn=showInfo;
+showInfo=function(id){if(id===yoga){document.querySelector('#modalbody').innerHTML='<h2>Yoga</h2><p>Record the length of your yoga practice in minutes. Any style or guided session counts.</p><p>Move within a comfortable range and avoid forcing painful positions.</p>';document.querySelector('#modal').showModal();return}const e=ownExercises().find(x=>x.id===id);if(e){document.querySelector('#modalbody').innerHTML='<h2>'+esc(e.name)+'</h2><p><b>Tracking:</b> '+esc(e.tracking)+'</p><h3>Your instructions</h3><p>'+esc(e.instructions||'No instructions added yet.')+'</p>';document.querySelector('#modal').showModal();return}oldShowOwn(id)};
+const oldLibraryPageOwn=libraryPage;
+libraryPage=function(){return oldLibraryPageOwn().replace('<div id="libraryresults">','<p><button class="btn secondary" onclick="createOwnExercise()">+ CREATE YOUR OWN EXERCISE</button></p><div id="libraryresults">')};
+const oldLibraryResultsOwn=libraryResults;
+libraryResults=function(){let h=oldLibraryResultsOwn();return h.replace(/(<button class="btn secondary" onclick="addToPlanFromLibrary\('own-[^']+'\)">\+ Add to plan<\/button>)/g,(match)=>match)};
+const oldCardioAddOwn=addToPlanFromLibrary;
+addToPlanFromLibrary=function(id){if(!timeOnlyExercise(id))return oldCardioAddOwn(id);if(!db.plans.length)return alert('Create a workout first.');const answer=prompt('Add '+names[id]+' to which workout?\n'+db.plans.map((p,i)=>(i+1)+': '+p.name).join('\n'));if(answer===null)return;const p=db.plans[Number(answer)-1];if(!p)return alert('Invalid workout number');p.ex.push([id,15,30]);save();render()};
+const oldWorkoutOwn=workout;
+workout=function(){let h=oldWorkoutOwn();if(!db.draft)return h;for(const [i,e] of db.draft.exercises.entries()){if(!timeOnlyExercise(e.id))continue;const s=e.sets[0]||{},minutes=s.minutes??s.reps??0;const pattern='<div class="card"><div class="split"><h3>'+(i+1)+'. '+esc(names[e.id])+'</h3>';
+const at=h.indexOf(pattern);if(at<0)continue;const end=h.indexOf('</div>',h.indexOf('Completed</label>',at));if(end<0)continue;const replacement='<div class="card"><div class="split"><h3>'+(i+1)+'. '+esc(names[e.id])+'</h3><button class="ghost" onclick="showInfo(\''+e.id+'\')">ⓘ</button></div><label>Duration (minutes)</label><input type="number" min="0" step=".5" value="'+esc(minutes)+'" onchange="setCardioField('+i+',\'minutes\',this.value)"><p><label><input type="checkbox" '+(s.done?'checked':'')+' onchange="setCardioField('+i+',\'done\',this.checked)"> Completed</label></p></div>';
+h=h.slice(0,at)+replacement+h.slice(end+6)}
+return h};
+const oldCardioChartPointsOwn=cardioChartPoints;
+cardioChartPoints=function(id,metric){if(timeOnlyExercise(id)&&metric!=='duration')return [];return oldCardioChartPointsOwn(id,metric)};
+const oldProgressOwn=progress;
+progress=function(){let h=oldProgressOwn();if(cardioChartExercise&&timeOnlyExercise(cardioChartExercise))h=h.replace('<option value="duration"','<option value="duration"');return h};
+
 render();if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
 </script></body></html>
