@@ -1169,6 +1169,17 @@ function gsExerciseCard(e,i,round=null){
  '<div class="setrow tiny"><span>SET</span><span>KG</span><span>REPS</span><span>DONE</span></div>'+rows+
  (round===null?'<div class="split" style="justify-content:flex-start;gap:8px"><button class="ghost" onclick="addSet('+i+')">+ Set</button><button class="ghost" onclick="removeSet('+i+')">− Set</button></div>':'')+'</div>';
 }
+let gsRestInterval=null;
+function gsStartRest(button,seconds){
+ if(gsRestInterval)clearInterval(gsRestInterval);
+ let remaining=seconds;
+ button.textContent='REST '+remaining+'s · TAP TO RESTART';
+ gsRestInterval=setInterval(()=>{
+  remaining--;
+  if(remaining<=0){clearInterval(gsRestInterval);gsRestInterval=null;button.textContent='REST COMPLETE · RESTART';return}
+  button.textContent='REST '+remaining+'s · TAP TO RESTART';
+ },1000);
+}
 function gsWorkout(){
  const d=db.draft;if(!d)return '<h2>No session open</h2>';
  const p=plan(d.plan),name=p?.name||'Workout';
@@ -1187,7 +1198,7 @@ function gsWorkout(){
   for(let j=0;j<rounds;j++){
    out+='<h3 class="lime" style="margin-top:18px">ROUND '+(j+1)+'</h3>';
    for(const i of indices)if(d.exercises[i].sets[j])out+=gsExerciseCard(d.exercises[i],i,j);
-   if(j<rounds-1)out+='<div style="text-align:center;background:#262626;padding:14px;border-radius:9px;margin:12px 0"><strong class="lime">REST</strong><p class="muted" style="margin:4px 0">Then start round '+(j+2)+'</p></div>';
+   if(j<rounds-1)out+='<div style="text-align:center;background:#262626;padding:14px;border-radius:9px;margin:12px 0"><strong class="lime">REST</strong><p class="muted" style="margin:4px 0">Then start round '+(j+2)+'</p><button class="ghost" onclick="gsStartRest(this,60)">START 60s REST</button></div>';
   }
   out+='</section>';
  }
