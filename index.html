@@ -1314,6 +1314,41 @@ showInfo=function(id){
  if(content)content.scrollTop=0;
 };
 
+
+/* Import a standalone training plan without replacing history or existing workouts. */
+async function importTrainingPlan(file){
+ if(!file)return;
+ try{
+  const data=JSON.parse(await file.text());
+  if(data.format!=='garage-sessions-plan-v1'||!Array.isArray(data.plans)||!data.schedule||!Array.isArray(data.schedule.slots))throw Error('This is not a Garage Sessions training plan.');
+  if(db.draft&&draftHasProgress(db.draft))throw Error('Finish your active workout before importing a new schedule.');
+  if(![1,2,3,4,6,8].includes(Number(data.schedule.weeks)))throw Error('Unsupported schedule length.');
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(data.schedule.anchor))throw Error('Invalid start date.');
+  const ids=new Set();
+  for(const p of data.plans){
+   if(!p||typeof p.id!=='string'||!/^plan-[a-z0-9-]+$/.test(p.id)||ids.has(p.id)||typeof p.name!=='string'||!Array.isArray(p.ex)||!p.ex.length)throw Error('Invalid workout in plan.');
+   ids.add(p.id);
+   for(const [eid,min,max] of p.ex){
+    if(!Object.prototype.hasOwnProperty.call(names,eid))throw Error('Unknown exercise: '+eid);
+    if(!Number.isFinite(min)||!Number.isFinite(max)||min<=0||max<min)throw Error('Invalid targets for '+eid);
+   }
+  }
+  for(const slot of data.schedule.slots)if(!ids.has(slot.plan)||!Number.isInteger(slot.week)||slot.week<0||slot.week>=data.schedule.weeks||!Number.isInteger(slot.day)||slot.day<0||slot.day>6)throw Error('Invalid scheduled day.');
+  if(!confirm('Import '+data.plans.length+' workouts and replace your current repeating schedule? Your workout history and other saved workouts will be kept.'))return;
+  for(const p of data.plans){
+   const index=db.plans.findIndex(x=>x.id===p.id);
+   const item={id:p.id,name:p.name,type:p.type==='cardio'?'cardio':'strength',ex:p.ex.map(x=>[...x]),groups:{...(p.groups||{})}};
+   if(index>=0)db.plans[index]=item;else db.plans.push(item);
+  }
+  db.schedule={weeks:data.schedule.weeks,anchor:data.schedule.anchor,slots:data.schedule.slots.map(s=>({...s}))};
+  save();tab='savedplans';render();alert('Training plan imported. Your existing history is safe.');
+ }catch(err){alert('Plan import failed: '+err.message)}
+}
+const gsSettingsWithPlanImport=settings;
+settings=function(){
+ return gsSettingsWithPlanImport()+'<div class="card"><h3>IMPORT TRAINING PLAN</h3><p class="muted">Import a Garage Sessions plan file. This adds workouts and sets your repeating schedule without deleting logged sessions. It does not use Restore backup.</p><input type="file" accept=".json,application/json" aria-label="Import training plan JSON" onchange="importTrainingPlan(this.files[0]);this.value=\'\'"></div>';
+};
+
 setInterval(clockTick,1000);
 
 render();if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
