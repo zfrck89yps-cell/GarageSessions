@@ -1,6 +1,6 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#000000"><meta name="apple-mobile-web-app-capable" content="yes"><title>Garage Sessions</title><link rel="manifest" href="manifest.webmanifest"><style>
 :root{font-family:Inter,system-ui,-apple-system,sans-serif;color:#f4f4f4;background:#000}*{box-sizing:border-box}body{margin:0;padding:24px 16px 100px;max-width:760px;margin:auto}h1,h2,h3{letter-spacing:-.035em}h1{font-size:2.3rem;line-height:1.02;margin:8px 0 20px}h2{font-size:1.3rem}.lime{color:#c6ff00}.muted,small{color:#999}header{display:flex;justify-content:space-between;align-items:center}.brand{font-weight:1000;letter-spacing:-.05em;font-size:1.15rem}.brand span{color:#c6ff00}.card{background:#1a1a1a;border:1px solid #292929;border-radius:17px;padding:17px;margin:12px 0}.split{display:flex;align-items:center;justify-content:space-between;gap:10px}.btn,button{cursor:pointer;font:inherit}.btn{background:#c6ff00;color:#000;border:0;border-radius:12px;padding:13px 17px;font-weight:800}.secondary{background:#292929;color:#f4f4f4}.ghost{background:transparent;color:#eee;border:1px solid #555;border-radius:9px;padding:7px 10px}input,textarea,select{background:#101010;color:#fff;border:1px solid #555;border-radius:9px;padding:11px;width:100%;font:inherit}input[type=checkbox]{width:auto;accent-color:#c6ff00}label{display:block;font-size:.85rem;color:#aaa;margin:9px 0 5px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.three{grid-template-columns:repeat(3,minmax(0,1fr))}.stat{font-size:1.55rem;font-weight:900}.exercise{border-top:1px solid #333;padding:16px 0}.exercise:first-child{border-top:0}.setrow{display:grid;grid-template-columns:35px 1fr 1fr 45px;gap:8px;align-items:center;margin:8px 0}.setrow input{text-align:center}nav{position:fixed;bottom:0;left:0;right:0;background:#111;border-top:1px solid #333;display:flex;justify-content:space-around;padding:10px 6px max(12px,env(safe-area-inset-bottom));z-index:3}nav button{background:none;border:0;color:#aaa;padding:8px;font-size:.85rem}nav button.active{color:#c6ff00}dialog{background:#1a1a1a;color:white;border:1px solid #555;border-radius:18px;max-width:min(92vw,500px);padding:22px}dialog::backdrop{background:#000b}.pill{border:1px solid #444;border-radius:99px;padding:5px 9px;font-size:.75rem;color:#aaa}canvas{width:100%;height:210px}.hint{border-left:3px solid #c6ff00;padding:9px 12px;background:#262b19;margin:10px 0;font-size:.88rem}.tiny{font-size:.75rem}button:focus-visible,input:focus-visible{outline:2px solid #c6ff00} @media(min-width:600px){body{padding-top:36px}}
-</style></head><body><header><div class="brand">G<span>Ƨ</span> GARAGE SESSIONS</div><span class="pill">YOUR TRAINING SPACE</span></header><main id="app"></main><nav id="nav"></nav><dialog id="modal"><div id="modalbody"></div><p><button class="btn secondary" onclick="document.querySelector('#modal').close()">Close</button></p></dialog><script>
+</style></head><body><header><div class="brand">G<span>Ƨ</span> GARAGE SESSIONS</div><span class="pill">YOUR TRAINING SPACE</span></header><main id="app"></main><nav id="nav"></nav><dialog id="modal"><div id="modalbody"></div><p><button class="btn secondary" onclick="document.querySelector('#modal').close()">Close</button></p></dialog><script src="exercise-db.js"></script><script>
 const KEY='garage-sessions-v1', names={squat:'Goblet squat',press:'Dumbbell floor press',row:'Bent-over dumbbell row',rdl:'Dumbbell Romanian deadlift',pallof:'Pallof press',step:'Step-ups',push:'Incline press-ups',bandrow:'Resistance-band row',bridge:'Glute bridge',deadbug:'Dead bug',bike:'Spin bike',suitcase:'Dumbbell bench pullover',inclinepress:'Incline dumbbell bench press',flatpress:'Flat dumbbell bench press',benchrow:'Bench-supported one-arm dumbbell row',barbellrdl:'Standard-bar Romanian deadlift',inclinecurl:'Incline dumbbell curl'};
 const info={squat:['Hold a dumbbell at chest height. Sit between your hips, keep heels grounded and stand tall.','Keep knees tracking over toes; use pain-free depth.'],press:['Lie on the floor with knees bent. Press dumbbells up and lower under control until upper arms touch the floor.','Keep wrists stacked above elbows; avoid bouncing.'],row:['Hinge at hips with a neutral back. Pull dumbbells towards your hips.','Keep shoulders down and avoid jerking.'],rdl:['With soft knees, push hips backwards and keep dumbbells close to legs. Stand by driving hips forwards.','Stop before your back rounds.'],pallof:['Anchor band securely at chest height. Stand side-on and press hands straight out, resisting rotation.','Do not use an unstable anchor.'],step:['Step onto a low, stable platform and lower slowly.','Keep knee aligned; reduce height if uncomfortable.'],push:['Hands on a solid raised surface, lower chest towards hands and push up.','Keep a straight line from head to heel; no slippery step.'],bandrow:['Anchor band securely and pull handles to ribs while drawing shoulder blades back.','Inspect band for damage before each use.'],bridge:['Lie on back with knees bent, drive through heels and lift hips.','Avoid overextending lower back.'],deadbug:['Lie on back, arms and knees raised; extend opposite arm and leg without arching back.','Move slowly, shorten range if back lifts.'],bike:['Ride comfortably upright with knees slightly bent at bottom of pedal stroke.','Start easy; intervals are brisk, not all-out.'],inclinepress:['Set the FID bench to a low incline (about 15–30 degrees). With a dumbbell in each hand, press upwards and lower slowly.','Keep feet planted and wrists stacked. Start light; do not use a barbell without a suitable rack and safeties.'],flatpress:['Set the FID bench flat and press two dumbbells above the chest, lowering under control.','Keep shoulder blades gently drawn back, feet grounded and wrists neutral.'],benchrow:['Set the FID bench flat or low incline. Support one hand and knee on the bench, row the opposite dumbbell towards the hip. Switch sides.','Avoid twisting; ensure the bench is locked and stable.'],barbellrdl:['With a standard bar held in front of thighs, soften knees, hinge hips backwards and lower the bar close to legs before standing tall.','Check the bar, plates and collars fit securely; verify bar load rating. Avoid lifting heavy until confirmed.'],suitcase:['Lie lengthways on your flat, locked FID bench with feet planted. Hold one light dumbbell securely with both hands above your chest, elbows slightly bent. Lower slowly behind your head only as far as your shoulders comfortably allow, then return.','Start very light, keep ribs down and do not force shoulder range. Check the dumbbell is secure. No band anchor or walking required.'],inclinecurl:['Set the bench to a moderate incline, let dumbbells hang beside you and curl without swinging.','Keep shoulders stable; use light weights and control the lowering phase.']};
 const templates=[{id:'A',name:'Full Body A',type:'strength',ex:[['squat',10,12],['inclinepress',8,12],['benchrow',10,12],['barbellrdl',10,12],['suitcase',10,12]]},{id:'B',name:'Full Body B',type:'strength',ex:[['step',8,10],['flatpress',8,12],['row',10,12],['bridge',12,15],['deadbug',8,10]]},{id:'C',name:'Spin Bike',type:'cardio',ex:[['bike',15,20]]}];
@@ -184,6 +184,75 @@ const oldSettingsWithProfiles=settings;
 settings=function(){return oldSettingsWithProfiles()+'<div class="card"><h3>PROFILES & EXERCISES</h3><p>Current profile: '+esc(profileState.people[profileState.active].name)+'</p><button class="btn secondary" onclick="go(\'profiles\')">MANAGE PROFILES</button> <button class="ghost" onclick="go(\'library\')">EXERCISE LIBRARY</button></div>'};
 const previousShowInfo=showInfo;
 showInfo=function(id){if(extraExercises[id]&&!coaching[id]){const [name,how,tips,muscles]=extraExercises[id];document.querySelector('#modalbody').innerHTML='<h2>'+esc(name)+'</h2>'+muscleMap(muscles)+'<h3>How to perform</h3><p>'+esc(how)+'</p><h3>Technique & safety</h3><p>'+esc(tips)+'</p>';document.querySelector('#modal').showModal();return}previousShowInfo(id)};
+
+
+/* Split Muscle Map (MIT, © 2026 1mach0): original anatomical SVG path geometry adapted for Garage Sessions.
+   Exercise catalogue and linked photography: Free Exercise DB, Unlicense / public domain.
+   See THIRD_PARTY_LICENSES.md. */
+const FRONT=[
+ ['traps_upper','M92 53 Q86 63 66 68 Q80 72 90 70 Q94 64 94 55 Z'],
+ ['brachialis','M51 110 Q45 128 46 152 Q48 158 53 157 Q50 136 56 116 Z'],
+ ['biceps','M57 117 Q50 132 52 152 Q57 162 64 157 Q67 138 65 120 Q61 113 57 117 Z'],
+ ['delt_side','M62 69 Q48 72 46 90 Q46 104 52 118 Q51 100 55 86 Q58 76 64 70 Z'],
+ ['delt_front','M65 70 Q59 77 57 87 Q54 101 54 116 Q62 106 66 96 Q69 82 65 70 Z'],
+ ['chest_upper','M99 72 Q84 70 70 73 Q66 84 68 94 Q84 91 99 94 Z'],
+ ['chest','M99 96 Q84 93 68 96 Q66 108 71 117 Q86 127 99 124 Z'],
+ ['brachioradialis','M45 160 Q53 158 57 164 Q47 194 41 230 L35 230 Q37 192 45 160 Z'],
+ ['forearm_flex','M58 165 Q64 168 63 176 Q56 204 47 231 L42 231 Q48 196 58 165 Z'],
+ ['obliques','M85 128 Q77 124 71 120 Q72 152 75 186 Q79 200 85 205 Z'],
+ ['abs','M99 126 Q91 126 87 130 L87 196 Q92 206 99 211 Z'],
+ ['quads','M69 222 Q64 262 72 316 Q82 326 92 318 Q89 290 88 264 Q87 242 91 233 Q81 226 69 222 Z'],
+ ['adductors','M98 232 Q93 231 91 235 Q88 262 92 300 Q98 270 99 242 Z'],
+ ['calves','M75 344 Q69 368 76 394 L80 394 Q78 368 83 345 Z M93 344 Q97 368 91 394 L88 394 Q90 368 88 346 Z'],
+ ['tibialis','M84 345 Q88 346 88 352 Q87 372 86 394 L82 394 Q81 370 84 345 Z'],
+ ['neck','M91 47 Q93 47 94 50 Q96 58 99 65 Q96 66 94 64 Q92 56 91 47 Z'],
+ ['serratus','M70 112 L77 115 L72 118 L78 121 L72 124 L77 127 L71 129 Q68 120 70 112 Z'],
+ ['hip_flexors','M87 208 Q81 212 76 220 Q83 225 90 231 Q90 220 87 208 Z']
+];
+const FRONT_DECO='M87 148 L113 148 M87 168 L113 168 M88 187 L112 187 M100 127 L100 209 M80 238 Q84 262 82 300';
+const BACK=[
+ ['triceps','M47 104 Q43 122 46 150 Q52 160 60 158 Q65 134 63 114 Q56 104 47 104 Z'],
+ ['upper_back','M70 90 Q79 91 86 104 Q90 114 88 124 Q78 121 71 113 Q66 101 70 90 Z'],
+ ['lats','M69 114 Q80 123 91 130 Q98 150 98 168 Q88 180 78 188 Q74 160 71 140 Q67 126 69 114 Z'],
+ ['lower_back','M100 148 L100 206 Q93 209 87 205 Q85 182 89 162 Q94 151 100 148 Z'],
+ ['traps_upper','M92 50 L100 52 L100 75 Q84 71 64 69 Q82 63 92 50 Z'],
+ ['traps_mid','M100 77 Q82 73 66 71 Q76 88 88 110 Q96 130 100 148 Z'],
+ ['delt_side','M62 69 Q48 72 46 90 Q46 104 52 118 Q51 100 55 86 Q58 76 64 70 Z'],
+ ['delt_rear','M65 70 Q59 77 57 87 Q54 101 54 116 Q62 106 66 96 Q69 82 65 70 Z'],
+ ['forearm_ext','M44 162 Q38 192 35 229 L46 231 Q55 198 63 166 Q53 158 44 162 Z'],
+ ['glutes','M70 206 Q65 224 70 246 Q84 256 99 249 L99 212 Q86 202 70 206 Z'],
+ ['hamstrings','M70 250 Q67 284 75 320 L93 320 Q98 286 98 254 Q84 260 70 250 Z'],
+ ['calves','M74 336 Q66 360 76 388 Q82 396 88 388 Q98 360 93 336 Q84 330 74 336 Z'],
+ ['neck','M92 44 Q96 45 99 45 L99 52 Q95 52 92 51 Z']
+];
+const BACK_DECO='M100 52 L100 206 M84 262 Q83 290 84 318 M84 340 L84 384';
+
+const anatomyKeys={chest:['chest','chest_upper'],back:['lats','upper_back','traps_mid','lower_back'],shoulders:['delt_front','delt_side','delt_rear'],triceps:['triceps'],biceps:['biceps','brachialis'],core:['abs','obliques'],quads:['quads'],hamstrings:['hamstrings'],glutes:['glutes']};
+const anatomyNames={chest:'Chest',chest_upper:'Upper chest',lats:'Lats',upper_back:'Upper back',traps_mid:'Traps',lower_back:'Lower back',delt_front:'Front delts',delt_side:'Side delts',delt_rear:'Rear delts',biceps:'Biceps',triceps:'Triceps',abs:'Abs',obliques:'Obliques',quads:'Quads',hamstrings:'Hamstrings',glutes:'Glutes',calves:'Calves'};
+function detailedMuscleMap(main,secondary=[]){
+const p=new Set(main.flatMap(m=>anatomyKeys[m]||[m])),s=new Set(secondary.flatMap(m=>anatomyKeys[m]||[m]));
+const figure=(side,paths,deco)=>{
+const mir='matrix(-1 0 0 1 200 0)';
+const path=(d,fill,stroke,extra='')=>'<path d="'+d+'" fill="'+fill+'" stroke="'+stroke+'" stroke-width=".7" '+extra+'/>';
+let svg='<svg viewBox="0 0 200 432" style="width:49%;height:auto;max-height:330px" role="img" aria-label="'+side+' anatomical muscle map"><ellipse cx="100" cy="26" rx="15" ry="19" fill="#777"/>'+path(SIL,'#686868','#aaa')+path(SIL,'#686868','#aaa','transform="'+mir+'"');
+for(const [id,d] of paths){const color=p.has(id)?'#c6ff00':s.has(id)?'#6d9c22':'#454545';svg+=path(d,color,'#171717')+path(d,color,'#171717','transform="'+mir+'"')}
+svg+=path(deco,'none','#202020')+path(deco,'none','#202020','transform="'+mir+'"')+'<text x="100" y="425" fill="#bbb" font-size="12" text-anchor="middle">'+side+'</text></svg>';return svg};
+return '<div style="display:flex;gap:4px;justify-content:center;background:#111;border-radius:12px;padding:6px">'+figure('FRONT',FRONT,FRONT_DECO)+figure('BACK',BACK,BACK_DECO)+'</div><p style="font-size:.85rem"><span style="color:#c6ff00">■</span> Main muscles &nbsp; <span style="color:#6d9c22">■</span> Supporting muscles</p>';
+}
+muscleMap=function(active){return detailedMuscleMap(active)};
+const dbRows=Array.isArray(window.EXERCISE_DB)?window.EXERCISE_DB:[];
+const importedExercises=dbRows.map((row,i)=>({id:'fedb'+i,name:row[0],category:row[1],main:(row[2]||'').split(' ').filter(Boolean),secondary:(row[3]||'').split(' ').filter(Boolean),equipment:row[4],level:row[5],instructions:row[6],folder:row[7],imageCount:row[8]}));
+const importedById=Object.fromEntries(importedExercises.map(e=>[e.id,e]));
+for(const e of importedExercises){names[e.id]=e.name;exerciseCatalog.push([e.id,e.category,e.equipment])}
+function exercisePhoto(e,i){return 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/'+e.folder.split('/').map(encodeURIComponent).join('/')+'/'+i+'.jpg'}
+function importedInfo(id){const e=importedById[id];if(!e)return;const list=e.instructions.split(/\n+/).map(s=>s.trim()).filter(Boolean);const imgs=e.folder&&e.imageCount?'<div class="grid">'+Array.from({length:Math.min(2,e.imageCount)},(_,i)=>'<img loading="lazy" style="width:100%;border-radius:10px;background:#333" src="'+exercisePhoto(e,i)+'" alt="'+esc(e.name)+' demonstration '+(i+1)+'" onerror="this.style.display=\'none\'">').join('')+'</div>':'';
+document.querySelector('#modalbody').innerHTML='<h2>'+esc(e.name)+'</h2>'+detailedMuscleMap(e.main,e.secondary)+imgs+'<p><b>Equipment:</b> '+esc(e.equipment)+' · <b>Level:</b> '+esc(e.level)+'</p>'+guideSection('How to perform',list)+'<p class="muted">Exercise instructions and demonstration images: Free Exercise DB (public domain). Start with a manageable load and adapt range of motion to your comfort and equipment.</p>';document.querySelector('#modal').showModal()}
+const priorShowInfoImported=showInfo;
+showInfo=function(id){if(importedById[id])return importedInfo(id);const c=coaching[id];if(c){const originalMap=muscleMap;muscleMap=function(){return detailedMuscleMap(c.muscles)};try{return priorShowInfoImported(id)}finally{muscleMap=originalMap}}return priorShowInfoImported(id)};
+let libraryEquipment='All';
+const priorLibraryPage=libraryPage;
+libraryPage=function(){const html=priorLibraryPage();const options=['All','Dumbbell','Barbell','Body only','Machine','Cable','Kettlebell','Bands','Other'];return html.replace('<div id="libraryresults">','<label>Equipment</label><select onchange="libraryEquipment=this.value;render()">'+options.map(o=>'<option '+(libraryEquipment===o?'selected':'')+'>'+o+'</option>').join('')+'</select><p class="muted">'+importedExercises.length+' imported exercises, plus Garage Sessions originals. Some require equipment you may not own.</p><div id="libraryresults">')};
+libraryResults=function(){const q=librarySearch.toLowerCase().trim();const filtered=exerciseCatalog.filter(([id,cat,eq])=>(libraryFilter==='All'||cat===libraryFilter)&&(libraryEquipment==='All'||(eq||'').toLowerCase().includes(libraryEquipment.toLowerCase()))&&(!q||names[id].toLowerCase().includes(q)));return filtered.slice(0,80).map(([id,cat,eq])=>'<div class="card"><div class="split"><div><h3>'+esc(names[id])+'</h3><small>'+esc(cat)+' · '+esc(eq)+'</small></div><button class="ghost" onclick="showInfo(\''+id+'\')">ⓘ</button></div><button class="btn secondary" onclick="addToPlanFromLibrary(\''+id+'\')">+ Add to plan</button></div>').join('')+(filtered.length>80?'<p class="muted">Showing first 80 of '+filtered.length+' matches. Search or filter to narrow the results.</p>':'')||'<p>No matching exercises.</p>'};
 
 render();if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
 </script></body></html>
