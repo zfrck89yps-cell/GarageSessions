@@ -606,5 +606,25 @@ return '<h1>YOUR <span class="lime">WEEKLY PLAN</span></h1><div class="plan-acti
 '<button class="ghost" onclick="go(\'library\')">BROWSE EXERCISE LIBRARY</button>';
 };
 
+
+/* No assumed weight target; goal is optional and user-defined. */
+const previousProgressOptionalGoal=progress;
+progress=function(){
+let h=previousProgressOptionalGoal();
+const goal=db.settings.goal;
+const goalCard='<div class="card"><div class="split"><h3>BODY WEIGHT GOAL</h3><button class="ghost" onclick="setBodyGoal()">Edit goal</button></div>';
+const at=h.indexOf(goalCard);
+if(at>=0){const end=h.indexOf('<div class="card"><h3>TRAINING ANALYSIS</h3>',at);if(end>=0)h=h.slice(0,at)+h.slice(end)}
+const latest=db.body.at(-1)?.kg;
+const custom=Number(goal)>20&&Number(goal)<400?
+'<div class="card"><div class="split"><h3>BODY WEIGHT GOAL</h3><button class="ghost" onclick="setBodyGoal()">EDIT</button><button class="ghost" onclick="removeBodyGoal()">REMOVE</button></div><div class="stat">'+Number(goal)+' kg</div><p class="muted">'+(latest!=null?(latest>goal?(latest-goal).toFixed(1)+' kg to target':latest<goal?(goal-latest).toFixed(1)+' kg below target':'Target reached'):'Log your weight to track progress')+'</p></div>':
+'<div class="card"><h3>BODY WEIGHT GOAL</h3><p class="muted">No goal set. Add one if you want to track towards a target.</p><button class="btn secondary" onclick="setBodyGoal()">+ ADD YOUR OWN GOAL</button></div>';
+return h.replace('<div class="card"><h3>TRAINING ANALYSIS</h3>',custom+'<div class="card"><h3>TRAINING ANALYSIS</h3>');
+};
+setBodyGoal=function(){const current=db.settings.goal;const answer=prompt('Your target body weight in kg',current??'');if(answer===null)return;if(!answer.trim())return alert('Enter a target weight.');const n=Number(answer);if(!Number.isFinite(n)||n<=20||n>=400)return alert('Enter a valid target weight in kg.');db.settings.goal=n;save();render()};
+function removeBodyGoal(){if(!confirm('Remove your body weight goal? Your weight history will remain.'))return;delete db.settings.goal;save();render()}
+const previousSettingsNoProgramme=settings;
+settings=function(){return previousSettingsNoProgramme().replace(/<div class="card"><h3>PROGRAMME<\/h3>[\s\S]*?<\/div>/,'')};
+
 render();if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
 </script></body></html>
