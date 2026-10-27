@@ -85,6 +85,11 @@ header .brand{min-width:0;overflow-wrap:anywhere}
  .setrow{grid-template-columns:24px minmax(0,1fr) minmax(0,1fr) 36px;gap:4px}
 }
 
+
+/* Exercise details: open at top of screen and keep close action visible. */
+#modal{position:fixed;top:max(16px,env(safe-area-inset-top));bottom:auto;left:50%;transform:translateX(-50%);margin:0;width:min(94vw,540px);max-height:calc(100dvh - 32px);overflow:auto;overscroll-behavior:contain}
+#modalbody{min-width:0;overflow-wrap:anywhere}
+#modal>p:last-child{position:sticky;bottom:0;background:#1a1a1a;padding:12px 0 0;margin-bottom:0;border-top:1px solid #333}
 </style></head><body><header><div class="brand">G<span>Ƨ</span> GARAGE SESSIONS</div><span class="pill">YOUR TRAINING SPACE</span></header><main id="app"></main><nav id="nav"></nav><dialog id="modal"><div id="modalbody"></div><p><button class="btn secondary" onclick="document.querySelector('#modal').close()">Close</button></p></dialog><script src="exercise-db.js"></script><script>
 const KEY='garage-sessions-v1', names={squat:'Goblet squat',press:'Dumbbell floor press',row:'Bent-over dumbbell row',rdl:'Dumbbell Romanian deadlift',pallof:'Pallof press',step:'Step-ups',push:'Incline press-ups',bandrow:'Resistance-band row',bridge:'Glute bridge',deadbug:'Dead bug',bike:'Spin bike',suitcase:'Dumbbell bench pullover',inclinepress:'Incline dumbbell bench press',flatpress:'Flat dumbbell bench press',benchrow:'Bench-supported one-arm dumbbell row',barbellrdl:'Standard-bar Romanian deadlift',inclinecurl:'Incline dumbbell curl'};
 const info={squat:['Hold a dumbbell at chest height. Sit between your hips, keep heels grounded and stand tall.','Keep knees tracking over toes; use pain-free depth.'],press:['Lie on the floor with knees bent. Press dumbbells up and lower under control until upper arms touch the floor.','Keep wrists stacked above elbows; avoid bouncing.'],row:['Hinge at hips with a neutral back. Pull dumbbells towards your hips.','Keep shoulders down and avoid jerking.'],rdl:['With soft knees, push hips backwards and keep dumbbells close to legs. Stand by driving hips forwards.','Stop before your back rounds.'],pallof:['Anchor band securely at chest height. Stand side-on and press hands straight out, resisting rotation.','Do not use an unstable anchor.'],step:['Step onto a low, stable platform and lower slowly.','Keep knee aligned; reduce height if uncomfortable.'],push:['Hands on a solid raised surface, lower chest towards hands and push up.','Keep a straight line from head to heel; no slippery step.'],bandrow:['Anchor band securely and pull handles to ribs while drawing shoulder blades back.','Inspect band for damage before each use.'],bridge:['Lie on back with knees bent, drive through heels and lift hips.','Avoid overextending lower back.'],deadbug:['Lie on back, arms and knees raised; extend opposite arm and leg without arching back.','Move slowly, shorten range if back lifts.'],bike:['Ride comfortably upright with knees slightly bent at bottom of pedal stroke.','Start easy; intervals are brisk, not all-out.'],inclinepress:['Set the FID bench to a low incline (about 15–30 degrees). With a dumbbell in each hand, press upwards and lower slowly.','Keep feet planted and wrists stacked. Start light; do not use a barbell without a suitable rack and safeties.'],flatpress:['Set the FID bench flat and press two dumbbells above the chest, lowering under control.','Keep shoulder blades gently drawn back, feet grounded and wrists neutral.'],benchrow:['Set the FID bench flat or low incline. Support one hand and knee on the bench, row the opposite dumbbell towards the hip. Switch sides.','Avoid twisting; ensure the bench is locked and stable.'],barbellrdl:['With a standard bar held in front of thighs, soften knees, hinge hips backwards and lower the bar close to legs before standing tall.','Check the bar, plates and collars fit securely; verify bar load rating. Avoid lifting heavy until confirmed.'],suitcase:['Lie lengthways on your flat, locked FID bench with feet planted. Hold one light dumbbell securely with both hands above your chest, elbows slightly bent. Lower slowly behind your head only as far as your shoulders comfortably allow, then return.','Start very light, keep ribs down and do not force shoulder range. Check the dumbbell is secure. No band anchor or walking required.'],inclinecurl:['Set the bench to a moderate incline, let dumbbells hang beside you and curl without swinging.','Keep shoulders stable; use light weights and control the lowering phase.']};
@@ -529,6 +534,27 @@ finish=function(){
 if(db.draft){const d=db.draft,p=plan(d.plan);if(p&&!p.id.startsWith('adhoc')){const extras=d.exercises.filter(e=>e.addedAdhoc).map(e=>e.id);if(extras.length){const unique=[...new Set(extras)];if(confirm('Save these '+unique.length+' extra exercise(s) permanently to '+p.name+' for next time?')){for(const id of extras)p.ex.push([id,isCardioExercise(id)?15:8,isCardioExercise(id)?30:12]);save()}}}}
 return previousFinishBuilder();
 };
+
+
+/* Single-user mode: retain current device's active data, hide obsolete profiles. */
+(function singleUserMigration(){
+const flag='garage-sessions-single-user-v1';
+if(localStorage.getItem(flag)!=='done'){
+const activeData=profileState?.people?.[profileState.active]?.data;
+if(activeData)db=activeData;
+localStorage.setItem(flag,'done');
+}
+save=function(){localStorage.setItem(KEY,JSON.stringify(db))};
+save();
+})();
+const priorSingleUserNav=nav;
+nav=function(){priorSingleUserNav();const pill=document.querySelector('header .pill');if(pill)pill.textContent='YOUR TRAINING SPACE'};
+const priorSingleUserSettings=settings;
+settings=function(){return priorSingleUserSettings().replace(/<div class="card"><h3>PROFILES & EXERCISES<\/h3>[\s\S]*?<\/div>/,'<div class="card"><h3>EXERCISE LIBRARY</h3><button class="btn secondary" onclick="go(\'library\')">BROWSE EXERCISES</button></div>')};
+const priorSingleUserRender=render;
+render=function(){if(tab==='profiles'){tab='settings'}priorSingleUserRender()};
+const previousShowInfoTop=showInfo;
+showInfo=function(id){previousShowInfoTop(id);const modal=document.querySelector('#modal');if(modal){modal.scrollTop=0;const content=document.querySelector('#modalbody');if(content)content.scrollTop=0;modal.style.top='max(16px, env(safe-area-inset-top))';modal.style.bottom='auto';modal.style.marginTop='0';modal.style.marginBottom='0'}};
 
 render();if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
 </script></body></html>
