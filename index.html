@@ -394,7 +394,7 @@ const e={id:'own-'+Date.now(),name:name.trim().slice(0,90),tracking:mode,categor
 ownExercises().push(e);syncOwnExercises();save();render();
 }
 function deleteOwnExercise(id){const e=ownExercises().find(x=>x.id===id);if(!e||!confirm('Delete '+e.name+' from your library? Existing workout history will be kept.'))return;db.customExercises=db.customExercises.filter(x=>x.id!==id);syncOwnExercises();save();render()}
-function timeOnlyExercise(id){return id===yoga||ownExercises().some(e=>e.id===id&&e.tracking==='time')}
+function timeOnlyExercise(id){return id===yogaId||ownExercises().some(e=>e.id===id&&e.tracking==='time')}
 function distanceExercise(id){return isCardioExercise(id)&&!timeOnlyExercise(id)}
 const oldShowOwn=showInfo;
 showInfo=function(id){if(id===yoga){document.querySelector('#modalbody').innerHTML='<h2>Yoga</h2><p>Record the length of your yoga practice in minutes. Any style or guided session counts.</p><p>Move within a comfortable range and avoid forcing painful positions.</p>';document.querySelector('#modal').showModal();return}const e=ownExercises().find(x=>x.id===id);if(e){document.querySelector('#modalbody').innerHTML='<h2>'+esc(e.name)+'</h2><p><b>Tracking:</b> '+esc(e.tracking)+'</p><h3>Your instructions</h3><p>'+esc(e.instructions||'No instructions added yet.')+'</p>';document.querySelector('#modal').showModal();return}oldShowOwn(id)};
