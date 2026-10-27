@@ -1370,6 +1370,38 @@ settings=function(){
  return gsSettingsWithPlanImport()+'<div class="card"><h3>IMPORT TRAINING PLAN</h3><p class="muted">Import workouts and choose which existing sessions to remove. Your completed history is always kept.</p><input type="file" accept=".json,application/json" aria-label="Import training plan JSON" onchange="importTrainingPlan(this.files[0]);this.value=\'\'"></div>';
 };
 
+
+/* Apply saved superset assignments before the first Ready-screen render. */
+const gsOriginalStartBeforeGroupFix=start;
+start=function(id){
+ const p=plan(id);
+ const existing=db.draft;
+ if(p&&(!existing||existing.plan!==id)){
+  // The original start routine renders immediately. Prepare its initial draft
+  // with group metadata so that first render already has the correct layout.
+  const previousRender=render;
+  let pending=true;
+  render=function(){
+   if(pending&&db.draft?.plan===id){
+    pending=false;
+    db.draft.exercises.forEach((e,i)=>{
+     if(!e.superset&&p.groups?.[i])e.superset=p.groups[i];
+    });
+    save();
+   }
+   return previousRender();
+  };
+  try{gsOriginalStartBeforeGroupFix(id)}finally{render=previousRender}
+ }else{
+  gsOriginalStartBeforeGroupFix(id);
+  if(db.draft?.plan===id&&p?.groups){
+   let changed=false;
+   db.draft.exercises.forEach((e,i)=>{if(!e.superset&&p.groups[i]){e.superset=p.groups[i];changed=true}});
+   if(changed){save();render()}
+  }
+ }
+};
+
 setInterval(clockTick,1000);
 
 render();if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
