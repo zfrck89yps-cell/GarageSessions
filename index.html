@@ -1237,6 +1237,44 @@ function gsTrainingDashboard(){
 const gsPreviousProgress=progress;
 progress=function(){return gsTrainingDashboard()+gsPreviousProgress()};
 
+
+/* Ensure saved group assignments are applied before the Ready screen renders. */
+const gsStartWithPreviewGroups=start;
+start=function(id){
+ gsStartWithPreviewGroups(id);
+ const d=db.draft,p=plan(id);
+ if(!d||d.plan!==id||!p?.groups)return;
+ let changed=false;
+ d.exercises.forEach((e,i)=>{
+  const expected=p.groups[i]||'';
+  if(!e.superset&&expected){e.superset=expected;changed=true}
+ });
+ if(changed){save();if(tab==='workout')render()}
+};
+/* Session history: completed sets only, explicit skipped exercises and saved effort. */
+history=function(){
+ const items=[...db.sessions].reverse().map(s=>{
+  const name=esc(plan(s.plan)?.name||s.plan);
+  const duration=Number.isFinite(s.durationMs)?s.durationMs:sessionElapsed(s,s.completed);
+  const finished=Number(s.completed)||Date.now();
+  const details=(s.exercises||[]).map(e=>{
+   const done=(e.sets||[]).filter(z=>z.done);
+   const effort=Number(e.effort);
+   const rating=effort>=1&&effort<=4?' · Effort '+effort+'/4 ('+esc(effortLabel(effort))+')':'';
+   const values=done.map(z=>{
+    if(isCardioExercise(e.id)||timeOnlyExercise(e.id))return esc(String(z.minutes??z.reps??0))+' min'+(z.km!=null?' · '+esc(String(z.km))+' km':'');
+    return esc(String(z.kg??0))+' kg × '+esc(String(z.reps??0));
+   }).join(', ');
+   return '<div style="padding:5px 0"><strong>'+esc(names[e.id]||e.id)+'</strong>: '+(done.length?values:'<span class="muted">No completed sets</span>')+rating+'</div>';
+  }).join('');
+  return '<div class="card"><div class="split"><div><small>'+fmt(s.date)+'</small><h3>'+name+'</h3></div><button class="ghost" onclick="deleteSession('+finished+')">Delete</button></div>'+
+   '<p class="muted">Duration: '+clockText(duration)+' · Finished: '+new Date(finished).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})+'</p>'+
+   '<button class="ghost" onclick="editSessionFinish('+finished+')">Edit finish time</button> <button class="ghost" onclick="editHistorySession('+finished+')">Edit note</button>'+
+   details+(s.notes?'<p>Note: '+esc(s.notes)+'</p>':'')+'</div>';
+ }).join('');
+ return '<h1>SESSION <span class="lime">HISTORY</span></h1>'+(items||'<p class="muted">Your completed workouts will appear here.</p>');
+};
+
 setInterval(clockTick,1000);
 
 render();if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
