@@ -901,6 +901,94 @@ workout=function(){
  return html;
 };
 
+
+/* Superset workflow and saved-template grouping. */
+const originalOpenBuilderGroups=openWorkoutBuilder;
+openWorkoutBuilder=function(id=null){
+ originalOpenBuilderGroups(id);
+ const p=id?plan(id):null;
+ if(builder)builder.groups=p?.groups?structuredClone(p.groups):{};
+};
+const originalSaveBuilderGroups=saveWorkoutBuilder;
+saveWorkoutBuilder=function(){
+ const snapshot=builder?{id:builder.id,groups:{...(builder.groups||{})}}:null;
+ const previousIds=new Set(db.plans.map(p=>p.id));
+ originalSaveBuilderGroups();
+ if(!snapshot||builder)return;
+ const target=snapshot.id?plan(snapshot.id):db.plans.find(p=>!previousIds.has(p.id));
+ if(target){target.groups=snapshot.groups;save()}
+};
+function builderGroupChange(i,value){
+ if(!builder)return;
+ if(!builder.groups)builder.groups={};
+ if(value)builder.groups[i]=value;else delete builder.groups[i];
+ save();render();
+}
+const originalBuilderRemoveGroup=builderRemoveExercise;
+builderRemoveExercise=function(i){
+ if(builder?.groups){
+  const groups={};
+  for(const [key,value] of Object.entries(builder.groups)){
+   const index=Number(key);
+   if(index<i)groups[index]=value;
+   if(index>i)groups[index-1]=value;
+  }
+  builder.groups=groups;
+ }
+ originalBuilderRemoveGroup(i);
+};
+const originalBuilderPageGroups=workoutBuilderPage;
+workoutBuilderPage=function(){
+ let html=originalBuilderPageGroups();
+ if(!builder)return html;
+ const controls='<div class="card"><h3>SUPERSETS & CIRCUITS</h3><p class="muted">Assign two or more exercises the same group letter. Groups are saved with this workout.</p>'+
+ builder.ex.map((item,i)=>'<div class="split" style="gap:10px;margin:10px 0"><span style="flex:1">'+esc(names[item[0]]||item[0])+'</span><select style="max-width:125px" aria-label="Group for '+esc(names[item[0]]||item[0])+'" onchange="builderGroupChange('+i+',this.value)">'+['','A','B','C','D'].map(v=>'<option value="'+v+'" '+((builder.groups||{})[i]===v?'selected':'')+'>'+(v?'Group '+v:'No group')+'</option>').join('')+'</select></div>').join('')+'</div>';
+ return html+controls;
+};
+function supersetRoundStatus(group){
+ const indices=db.draft?.exercises?.map((e,i)=>e.superset===group?i:-1).filter(i=>i>=0)||[];
+ if(indices.length<2)return null;
+ const rounds=Math.max(...indices.map(i=>db.draft.exercises[i].sets?.length||0));
+ let complete=0;
+ for(let round=0;round<rounds;round++){
+  if(indices.every(i=>db.draft.exercises[i].sets?.[round]?.done))complete++;
+  else break;
+ }
+ return {indices,rounds,complete,next:complete<rounds?complete+1:null};
+}
+function nextSupersetExercise(group){
+ const state=supersetRoundStatus(group);
+ if(!state)return;
+ const round=state.complete;
+ const next=state.indices.find(i=>!db.draft.exercises[i].sets?.[round]?.done);
+ if(next===undefined){alert('All rounds complete.');return}
+ const element=document.getElementById('exercise-'+next);
+ if(element)element.scrollIntoView({behavior:'smooth',block:'start'});
+}
+const originalWorkoutSupersetFlow=workout;
+workout=function(){
+ let html=originalWorkoutSupersetFlow();
+ if(!db.draft)return html;
+ const groups=[...new Set(db.draft.exercises.map(e=>e.superset).filter(Boolean))];
+ const panels=groups.map(group=>{
+  const state=supersetRoundStatus(group);
+  if(!state)return '';
+  const namesInGroup=state.indices.map(i=>esc(names[db.draft.exercises[i].id]||db.draft.exercises[i].id)).join(' → ');
+  return '<div class="card" style="border-color:#c6ff00"><h3>GROUP '+group+' · '+state.complete+'/'+state.rounds+' ROUNDS</h3><p class="muted">'+namesInGroup+'</p><p>'+(state.next?'Round '+state.next+': complete one set of each exercise, then rest.':'All rounds completed.')+'</p><button class="ghost" onclick="nextSupersetExercise(\''+group+'\')">'+(state.next?'GO TO NEXT SET':'VIEW GROUP')+'</button></div>';
+ }).join('');
+ const timerEnd=html.indexOf('</div></div></div>');
+ if(timerEnd>=0)html=html.slice(0,timerEnd+18)+panels+html.slice(timerEnd+18);
+ else html=panels+html;
+ for(const [i,e] of db.draft.exercises.entries()){
+  const title='<h3>'+(i+1)+'. '+esc(names[e.id]||e.id)+'</h3>';
+  const at=html.indexOf(title);
+  if(at<0)continue;
+  const card=html.lastIndexOf('<div class="card"',at);
+  if(card>=0)html=html.slice(0,card)+html.slice(card).replace('<div class="card"','<div class="card" id="exercise-'+i+'"');
+ }
+ return html;
+};
+
 setInterval(clockTick,1000);
 
 render();if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
