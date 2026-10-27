@@ -799,6 +799,108 @@ workout=function(){
  }
  return html;
 };
+
+/* Advanced training: optional effort, paired exercises, recovery and plan reviews. */
+function setExerciseEffort(i,value){
+ const e=db.draft?.exercises?.[i];if(!e)return;
+ e.rir=value===''?null:Number(value);save();render();
+}
+function setExerciseGroup(i,value){
+ const e=db.draft?.exercises?.[i];if(!e)return;
+ e.superset=value||'';save();render();
+}
+function setPlanExerciseGroup(planId,index,value){
+ const p=plan(planId);if(!p||!p.ex[index])return;
+ if(!p.groups)p.groups={};
+ if(value)p.groups[index]=value;else delete p.groups[index];
+ save();render();
+}
+const advancedStart=start;
+start=function(id){
+ advancedStart(id);
+ if(!db.draft||db.draft.plan!==id)return;
+ const p=plan(id);
+ if(p?.groups)db.draft.exercises.forEach((e,i)=>{if(e.superset===undefined)e.superset=p.groups[i]||''});
+ save();
+};
+function effortStats(exerciseId,limit=12){
+ return db.sessions.flatMap(s=>(s.exercises||[]).filter(e=>e.id===exerciseId&&e.rir!==undefined&&e.rir!==null).map(e=>({date:s.date,rir:Number(e.rir)}))).filter(x=>Number.isFinite(x.rir)).slice(-limit);
+}
+const effortAwareAdvice=advice;
+advice=function(e){
+ const basic=effortAwareAdvice(e),effort=effortStats(e.id);
+ if(!effort.length)return basic;
+ const recent=effort.slice(-4),mean=recent.reduce((sum,x)=>sum+x.rir,0)/recent.length;
+ if(mean<=1)return 'Recent sets felt very demanding (about '+mean.toFixed(1)+' reps left). Hold the weight or ease off; do not increase yet.';
+ if(basic.startsWith('Optional small increase')&&mean<2)return 'Your rep target is improving, but effort is still high. Keep this working weight until it feels more manageable.';
+ return basic+' Recent effort: '+mean.toFixed(1)+' reps left on average.';
+};
+function trainingRecoveryReview(){
+ const sessions=db.sessions.filter(s=>(s.exercises||[]).some(e=>e.sets?.some(z=>z.done))).sort((a,b)=>a.date.localeCompare(b.date));
+ if(!sessions.length)return '<div class="card"><h3>RECOVERY & ROUTINE REVIEW</h3><p class="muted">Complete sessions to unlock a review.</p></div>';
+ const recent=sessions.slice(-12),efforts=recent.flatMap(s=>s.exercises||[]).filter(e=>e.rir!==null&&e.rir!==undefined).map(e=>Number(e.rir)).filter(Number.isFinite);
+ const avg=efforts.length?efforts.reduce((a,b)=>a+b,0)/efforts.length:null;
+ const strength=recent.flatMap(s=>(s.exercises||[]).filter(e=>!isCardioExercise(e.id)&&!timeOnlyExercise(e.id)));
+ const lowEffort=avg!==null&&avg<=1;
+ const dates=sessions.map(s=>new Date(s.date+'T12:00:00').getTime());
+ const span=(dates.at(-1)-dates[0])/864e5;
+ const due=span>=42&&recent.length>=6;
+ const first=recent.slice(0,Math.floor(recent.length/2));
+ const last=recent.slice(Math.floor(recent.length/2));
+ const load=xs=>xs.reduce((sum,s)=>sum+(s.exercises||[]).reduce((a,e)=>a+(e.sets||[]).filter(z=>z.done).reduce((b,z)=>b+(Number(z.kg)||0)*(Number(z.reps)||0),0),0),0)/Math.max(1,xs.length);
+ const earlier=load(first),later=load(last),flat=earlier>0&&later<=earlier*1.02;
+ let suggestion='Keep your current programme if it is enjoyable and you are recovering well.';
+ if(lowEffort&&flat)suggestion='Recent sessions are demanding and training load is flat. Consider a lighter week: fewer sets or a modest reduction in working weight, then reassess.';
+ else if(lowEffort)suggestion='Recent sessions feel demanding. Prioritise recovery; consider reducing sets for a week if tiredness is building.';
+ else if(due&&flat)suggestion='You have at least six weeks of history and progress looks fairly level. Review exercise choices, rep targets and recovery before changing your routine.';
+ else if(due)suggestion='Six-week review: training load is progressing. No routine change is necessary unless goals or preferences have changed.';
+ return '<div class="card"><h3>RECOVERY & ROUTINE REVIEW</h3><p class="muted">'+(due?'Six-week review available':'Review after about six weeks and six sessions')+' · '+recent.length+' recent sessions'+(avg===null?' · No effort ratings yet':' · Average '+avg.toFixed(1)+' reps in reserve')+'</p><p>'+esc(suggestion)+'</p><small>Suggestions only. Never automatically changes your weights or plan.</small></div>';
+}
+function muscleGroupReview(){
+ const groups={Chest:0,Back:0,Shoulders:0,Arms:0,Legs:0,Core:0};
+ const cutoff=Date.now()-7*864e5;
+ const categories={Push:['Chest','Shoulders','Arms'],Pull:['Back','Arms'],Legs:['Legs'],Core:['Core']};
+ for(const s of db.sessions){
+  if(new Date(s.date+'T12:00:00').getTime()<cutoff)continue;
+  for(const e of s.exercises||[]){
+   if(isCardioExercise(e.id)||timeOnlyExercise(e.id))continue;
+   const n=(names[e.id]||'').toLowerCase();
+   let targets;
+   if(/plank|crunch|dead bug|deadbug|pallof|abdom|core/.test(n))targets=['Core'];
+   else if(/curl|tricep|extension/.test(n))targets=['Arms'];
+   else if(/row|pulldown|pull.up|lat |reverse fly/.test(n))targets=['Back'];
+   else if(/shoulder|lateral raise|overhead press/.test(n))targets=['Shoulders'];
+   else if(/press|push.up|fly|chest/.test(n))targets=['Chest'];
+   else if(/squat|lunge|deadlift|leg |glute|hip |calf|step.up/.test(n))targets=['Legs'];
+   else targets=categories[exerciseCatalog.find(x=>x[0]===e.id)?.[1]]||[];
+   const count=(e.sets||[]).filter(z=>z.done).length;
+   for(const target of targets)groups[target]+=count;
+  }
+ }
+ return '<div class="card"><h3>MUSCLE-GROUP SETS</h3><p class="muted">Approximate completed sets over the last 7 days, assigned to primary muscles. Compound exercises may train other muscles too.</p>'+Object.entries(groups).map(([name,count])=>'<div class="split" style="padding:7px 0;border-bottom:1px solid #333"><span>'+name+'</span><strong>'+count+' sets</strong></div>').join('')+'</div>';
+}
+const advancedProgress=progress;
+progress=function(){return advancedProgress()+muscleGroupReview()+trainingRecoveryReview()};
+const advancedWorkout=workout;
+workout=function(){
+ let html=advancedWorkout();
+ if(!db.draft)return html;
+ const groups=db.draft.exercises.map(e=>e.superset).filter(Boolean);
+ const counts=groups.reduce((m,g)=>(m[g]=(m[g]||0)+1,m),{});
+ for(const [i,e] of db.draft.exercises.entries()){
+  if(isCardioExercise(e.id)||timeOnlyExercise(e.id))continue;
+  const title='<h3>'+(i+1)+'. '+esc(names[e.id]||e.id)+'</h3>';
+  const at=html.indexOf(title);if(at<0)continue;
+  const cardEnd=html.indexOf('</div>',at+title.length);if(cardEnd<0)continue;
+  const group=e.superset||'';
+  const options=['','A','B','C','D'].map(v=>'<option value="'+v+'" '+(group===v?'selected':'')+'>'+(v?'Group '+v:'None')+'</option>').join('');
+  const effortOptions=[['','Not recorded'],['0','0 — maximum effort'],['1','1 rep left'],['2','2 reps left'],['3','3 reps left'],['4','4 reps left'],['5','5+ reps left']].map(([v,label])=>'<option value="'+v+'" '+(String(e.rir??'')===v?'selected':'')+'>'+label+'</option>').join('');
+  const extra='<div style="margin:12px 0;display:grid;grid-template-columns:1fr 1fr;gap:10px"><div><label for="group-'+i+'">SUPERSET / CIRCUIT</label><select id="group-'+i+'" onchange="setExerciseGroup('+i+',this.value)">'+options+'</select></div><div><label for="effort-'+i+'">REPS LEFT (OPTIONAL)</label><select id="effort-'+i+'" onchange="setExerciseEffort('+i+',this.value)">'+effortOptions+'</select></div></div>'+(group&&counts[group]>1?'<small style="color:#c6ff00">Group '+group+': alternate exercises in this group, then rest after each round.</small>':'');
+  html=html.slice(0,cardEnd+6)+extra+html.slice(cardEnd+6);
+ }
+ return html;
+};
+
 setInterval(clockTick,1000);
 
 render();if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
