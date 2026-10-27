@@ -1,5 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-<rect width="512" height="512" rx="105" fill="#101010"/>
-<path d="M186 115H371L338 180H223L158 294L191 347H306L332 302H239L271 243H425L350 392H153L85 292Z" fill="#F4F4F4"/>
-<path d="M251 235H427L352 390H170L133 326H208L220 343H307L331 298H228Z" fill="#C6FF00"/>
+<rect width="512" height="512" rx="100" fill="#101010"/>
+<!-- The two angular strokes follow the original Garage Sessions monogram. -->
+<path fill="#F4F4F4" d="M179 113H368L338 174H216L145 297L180 351H304L329 304H226L259 244H424L353 389H151L77 297Z"/>
+<path fill="#C6FF00" d="M249 235H428L355 389H170L135 327H210L224 347H305L335 296H221Z"/>
 </svg>
