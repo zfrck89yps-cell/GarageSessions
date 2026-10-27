@@ -1127,6 +1127,25 @@ advice=function(e){
  return base;
 };
 
+
+/* A draft is not an active session until its timer has been started or sets logged. */
+function draftHasProgress(d){
+ return !!d&&(!!d.clockStarted||(d.exercises||[]).some(e=>(e.sets||[]).some(s=>s.done)));
+}
+const oldStartDraftGuard=start;
+start=function(id){
+ const old=db.draft;
+ if(old&&old.plan!==id&&!draftHasProgress(old))db.draft=null;
+ oldStartDraftGuard(id);
+};
+startAdhoc=function(){
+ if(db.draft&&draftHasProgress(db.draft)&&!confirm('Replace your unfinished session?'))return;
+ if(db.draft&&!draftHasProgress(db.draft))db.draft=null;
+ const id='adhoc'+Date.now();
+ db.plans.push({id,name:'Ad hoc session',type:'strength',ex:[]});
+ save();start(id);
+};
+
 setInterval(clockTick,1000);
 
 render();if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
