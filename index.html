@@ -533,7 +533,7 @@ cardioChartPoints=function(id,metric){if(timeOnlyExercise(id)&&metric!=='duratio
 let builder=null,pickerContext=null,pickerQuery='',pickerCategory='All',pickerEquipment='All';
 function openWorkoutBuilder(id=null){
 const p=id?plan(id):null,s=ensureSchedule();
-builder={id:p?.id||null,name:p?.name||'',type:p?.type||'strength',ex:p?structuredClone(p.ex):[],weeks:s.weeks,anchor:s.anchor,slots:p?s.slots.filter(x=>x.plan===id).map(x=>({week:x.week,day:x.day})):[]};
+builder={id:p?.id||null,name:p?.name||'',type:p?.type||'strength',ex:p?structuredClone(p.ex):[],groups:p?.groups?structuredClone(p.groups):{},weeks:s.weeks,anchor:s.anchor,slots:p?s.slots.filter(x=>x.plan===id).map(x=>({week:x.week,day:x.day})):[]};
 tab='builder';render();
 }
 function builderSet(k,v){if(builder)builder[k]=v}
@@ -544,8 +544,8 @@ function saveWorkoutBuilder(){
 if(!builder)return;const name=builder.name.trim();if(!name)return alert('Give your workout a name first.');
 if(!builder.ex.length&&!confirm('Save this workout without exercises?'))return;
 const s=ensureSchedule(),id=builder.id||'custom'+Date.now();
-if(builder.id){const p=plan(id);if(!p)return alert('Workout no longer exists.');p.name=name;p.type=builder.type;p.ex=structuredClone(builder.ex)}
-else db.plans.push({id,name,type:builder.type,ex:structuredClone(builder.ex)});
+if(builder.id){const p=plan(id);if(!p)return alert('Workout no longer exists.');p.name=name;p.type=builder.type;p.ex=structuredClone(builder.ex);p.groups={...(builder.groups||{})}}
+else db.plans.push({id,name,type:builder.type,ex:structuredClone(builder.ex),groups:{...(builder.groups||{})}});
 s.weeks=Number(builder.weeks);s.anchor=builder.anchor;s.slots=s.slots.filter(x=>x.plan!==id&&x.week<s.weeks);
 s.slots.push(...builder.slots.filter(x=>x.week<s.weeks).map(x=>({...x,plan:id})));
 builder=null;save();tab='savedplans';render();
@@ -794,10 +794,10 @@ workout=function(){
   const title='<h3>'+(i+1)+'. '+esc(names[e.id]||e.id)+'</h3>';
   const index=html.indexOf(title);if(index<0)continue;
   const close=html.indexOf('</div>',index+title.length);if(close<0)continue;
-  const note='<div style="margin:10px 0;padding:10px 12px;background:#242424;border-left:3px solid #c6ff00;border-radius:7px"><small style="color:#c6ff00;font-weight:750">WEIGHT GUIDANCE</small><p style="margin:5px 0 0;font-size:.9rem;line-height:1.4">'+esc(advice(e))+'</p></div>';
+  const note='<div class="weight-guidance" style="margin:10px 0;padding:10px 12px;background:#242424;border-left:3px solid #c6ff00;border-radius:7px"><small style="color:#c6ff00;font-weight:750">WEIGHT GUIDANCE</small><p style="margin:5px 0 0;font-size:.9rem;line-height:1.4">'+esc(advice(e))+'</p></div>';
   html=html.slice(0,close+6)+note+html.slice(close+6);
  }
- return html;
+ return html.replaceAll('<div class="hint">','<div class="hint" style="display:none">');
 };
 
 /* Advanced training: optional effort, paired exercises, recovery and plan reviews. */
@@ -820,7 +820,7 @@ start=function(id){
  advancedStart(id);
  if(!db.draft||db.draft.plan!==id)return;
  const p=plan(id);
- if(p?.groups)db.draft.exercises.forEach((e,i)=>{if(e.superset===undefined)e.superset=p.groups[i]||''});
+ if(p?.groups)db.draft.exercises.forEach((e,i)=>{if(!e.superset)e.superset=p.groups[i]||''});
  save();
 };
 function effortStats(exerciseId,limit=12){
