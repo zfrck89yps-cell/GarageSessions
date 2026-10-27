@@ -413,5 +413,63 @@ const oldCardioChartPointsOwn=cardioChartPoints;
 cardioChartPoints=function(id,metric){if(timeOnlyExercise(id)&&metric!=='duration')return [];return oldCardioChartPointsOwn(id,metric)};
 
 
+
+/* Guided workout builder, exercise picker and saved plan manager. */
+let builder=null,pickerContext=null,pickerQuery='',pickerCategory='All',pickerEquipment='All';
+function openWorkoutBuilder(id=null){
+const p=id?plan(id):null,s=ensureSchedule();
+builder={id:p?.id||null,name:p?.name||'',type:p?.type||'strength',ex:p?structuredClone(p.ex):[],weeks:s.weeks,anchor:s.anchor,slots:p?s.slots.filter(x=>x.plan===id).map(x=>({week:x.week,day:x.day})):[]};
+tab='builder';render();
+}
+function builderSet(k,v){if(builder)builder[k]=v}
+function builderAddSlot(){if(!builder)return;const week=Number(document.querySelector('#builderweek').value),day=Number(document.querySelector('#builderday').value);if(!builder.slots.some(x=>x.week===week&&x.day===day))builder.slots.push({week,day});render()}
+function builderRemoveSlot(i){builder.slots.splice(i,1);render()}
+function builderRemoveExercise(i){builder.ex.splice(i,1);render()}
+function saveWorkoutBuilder(){
+if(!builder)return;const name=builder.name.trim();if(!name)return alert('Give your workout a name first.');
+if(!builder.ex.length&&!confirm('Save this workout without exercises?'))return;
+const s=ensureSchedule(),id=builder.id||'custom'+Date.now();
+if(builder.id){const p=plan(id);if(!p)return alert('Workout no longer exists.');p.name=name;p.type=builder.type;p.ex=structuredClone(builder.ex)}
+else db.plans.push({id,name,type:builder.type,ex:structuredClone(builder.ex)});
+s.weeks=Number(builder.weeks);s.anchor=builder.anchor;s.slots=s.slots.filter(x=>x.plan!==id&&x.week<s.weeks);
+s.slots.push(...builder.slots.filter(x=>x.week<s.weeks).map(x=>({...x,plan:id})));
+builder=null;save();tab='savedplans';render();
+}
+function cancelWorkoutBuilder(){if(!builder)return; if(!confirm('Discard unsaved changes?'))return;builder=null;tab='savedplans';render()}
+function workoutBuilderPage(){
+if(!builder){tab='savedplans';return savedPlansPage()}
+const days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+return '<div class="split"><h1>'+(builder.id?'EDIT':'CREATE')+' <span class="lime">WORKOUT</span></h1><button class="ghost" onclick="cancelWorkoutBuilder()">Cancel</button></div>'+
+'<div class="card"><label>Workout name</label><input style="width:100%" placeholder="e.g. Upper body A" value="'+esc(builder.name)+'" oninput="builderSet(\'name\',this.value)"><label>Workout type</label><select onchange="builderSet(\'type\',this.value)"><option value="strength" '+(builder.type==='strength'?'selected':'')+'>Strength / mixed</option><option value="cardio" '+(builder.type==='cardio'?'selected':'')+'>Cardio</option></select></div>'+
+'<div class="card"><div class="split"><h2>EXERCISES</h2><button class="btn secondary" onclick="openExercisePicker(\'builder\')">+ ADD EXERCISES</button></div>'+(builder.ex.length?builder.ex.map((e,i)=>'<div class="split" style="padding:10px 0;border-bottom:1px solid #333"><div><b>'+(i+1)+'. '+esc(names[e[0]]||e[0])+'</b><small>'+e[1]+'–'+e[2]+(isCardioExercise(e[0])?' min':' reps')+'</small></div><div><button class="ghost" onclick="showInfo(\''+e[0]+'\')">ⓘ</button><button class="ghost" onclick="builderRemoveExercise('+i+')">Remove</button></div></div>').join(''):'<p class="muted">No exercises yet. Add as many as you like.</p>')+'</div>'+
+'<div class="card"><h2>REPEAT SCHEDULE</h2><label>Cycle length</label><select onchange="builderSet(\'weeks\',Number(this.value));builder.slots=builder.slots.filter(x=>x.week<builder.weeks);render()">'+[1,2,3,4,6,8].map(n=>'<option value="'+n+'" '+(builder.weeks===n?'selected':'')+'>'+n+' week'+(n===1?'':'s')+'</option>').join('')+'</select><label>Week 1 starts</label><input type="date" value="'+esc(builder.anchor)+'" onchange="builderSet(\'anchor\',this.value)"><p class="muted">Choose a week and day. Add more days if you want this workout several times in the cycle.</p><div class="grid"><div><label>Week</label><select id="builderweek">'+Array.from({length:builder.weeks},(_,i)=>'<option value="'+i+'">Week '+(i+1)+'</option>').join('')+'</select></div><div><label>Day</label><select id="builderday">'+days.map((d,i)=>'<option value="'+i+'">'+d+'</option>').join('')+'</select></div></div><p><button class="btn secondary" onclick="builderAddSlot()">+ ADD DAY</button></p>'+builder.slots.map((slot,i)=>'<div class="split"><span>Week '+(slot.week+1)+' · '+days[slot.day]+'</span><button class="ghost" onclick="builderRemoveSlot('+i+')">Remove</button></div>').join('')+'<p class="muted">'+(builder.slots.length?'Repeats automatically after week '+builder.weeks+'.':'No days assigned: available as an unscheduled workout.')+'</p></div><button class="btn" style="width:100%" onclick="saveWorkoutBuilder()">SAVE WORKOUT</button>';
+}
+function savedPlansPage(){return '<div class="split"><h1>MY <span class="lime">SAVED PLANS</span></h1><button class="ghost" onclick="go(\'plans\')">Schedule</button></div><button class="btn" onclick="openWorkoutBuilder()">+ CREATE WORKOUT</button>'+(db.plans.filter(p=>!p.id.startsWith('adhoc')).map(p=>'<div class="card"><div class="split"><div><h3>'+esc(p.name)+'</h3><small>'+p.ex.length+' exercises · '+esc(p.type)+'</small></div><button class="btn secondary" onclick="openWorkoutBuilder(\''+p.id+'\')">EDIT</button></div><p class="muted">'+p.ex.map(x=>esc(names[x[0]]||x[0])).join(' · ')+'</p><button class="ghost" onclick="start(\''+p.id+'\')">Start now</button> <button class="ghost" onclick="deleteSavedWorkout(\''+p.id+'\')">Delete</button></div>').join('')||'<p>No saved workouts yet.</p>')};
+function openExercisePicker(context){pickerContext=context;pickerQuery='';pickerCategory='All';pickerEquipment='All';tab='picker';render()}
+function pickerDone(){const context=pickerContext;pickerContext=null;tab=context==='builder'?'builder':'workout';render()}
+function pickerAdd(id){
+if(pickerContext==='builder'&&builder){builder.ex.push([id,isCardioExercise(id)?15:8,isCardioExercise(id)?30:12]);}
+else if(pickerContext==='workout'&&db.draft){const cardio=isCardioExercise(id);db.draft.exercises.push({id,min:cardio?15:8,max:cardio?30:12,sets:Array.from({length:cardio?1:db.settings.sets},()=>({kg:0,reps:cardio?15:8,done:false})),addedAdhoc:true});save()}
+const status=document.querySelector('#pickerstatus');if(status)status.textContent='Added '+(names[id]||id)+' ✓';
+}
+function pickerResults(){
+const q=pickerQuery.trim().toLowerCase();
+const rows=exerciseCatalog.filter(([id,cat,eq])=>(pickerCategory==='All'||cat===pickerCategory)&&(pickerEquipment==='All'||String(eq||'').toLowerCase().includes(pickerEquipment.toLowerCase()))&&(!q||names[id]?.toLowerCase().includes(q)));
+return rows.slice(0,80).map(([id,cat,eq])=>'<div class="card"><div class="split"><div style="flex:1 1 160px"><h3>'+esc(names[id]||id)+'</h3><small>'+esc(cat)+' · '+esc(eq)+'</small></div><button class="ghost" onclick="showInfo(\''+id+'\')">ⓘ Details</button><button class="btn secondary" onclick="pickerAdd(\''+id+'\')">+ Add</button></div></div>').join('')+(rows.length>80?'<p class="muted">Showing 80 of '+rows.length+'. Search to narrow results.</p>':'')||'<p>No matching exercises.</p>';
+}
+function exercisePickerPage(){const cats=['All',...new Set(exerciseCatalog.map(x=>x[1]))];return '<div class="split"><button class="ghost" onclick="pickerDone()">← Back</button><button class="btn" onclick="pickerDone()">DONE ✓</button></div><h1>ADD <span class="lime">EXERCISES</span></h1><p class="muted">Tap + to add multiple exercises. Tap ⓘ to read the instructions, then close the details to continue browsing.</p><input style="width:100%" aria-label="Search exercise library" placeholder="Search exercises..." value="'+esc(pickerQuery)+'" oninput="pickerQuery=this.value;document.querySelector(\'#pickerresults\').innerHTML=pickerResults()"><div class="grid"><div><label>Category</label><select onchange="pickerCategory=this.value;document.querySelector(\'#pickerresults\').innerHTML=pickerResults()">'+cats.map(x=>'<option>'+esc(x)+'</option>').join('')+'</select></div><div><label>Equipment</label><select onchange="pickerEquipment=this.value;document.querySelector(\'#pickerresults\').innerHTML=pickerResults()">'+['All','Dumbbell','Barbell','Body','Machine','Cable','Kettlebell','Bands','Mat'].map(x=>'<option>'+x+'</option>').join('')+'</select></div></div><p id="pickerstatus" aria-live="polite"></p><div id="pickerresults">'+pickerResults()+'</div><button class="btn" style="width:100%" onclick="pickerDone()">DONE ADDING EXERCISES</button>'}
+const previousRenderBuilder=render;
+render=function(){if(['builder','savedplans','picker'].includes(tab)){nav();document.querySelector('#app').innerHTML=tab==='builder'?workoutBuilderPage():tab==='savedplans'?savedPlansPage():exercisePickerPage();return}previousRenderBuilder()};
+createSavedWorkout=function(){openWorkoutBuilder()};
+const previousPlansBuilder=plans;
+plans=function(){return '<div class="split"><h1>YOUR <span class="lime">WEEKLY PLAN</span></h1><button class="btn secondary" onclick="go(\'savedplans\')">MY SAVED PLANS</button></div>'+previousPlansBuilder().replace(/<button class="btn" onclick="createSavedWorkout\(\)">\+ CREATE WORKOUT<\/button>/g,'<button class="btn" onclick="openWorkoutBuilder()">+ CREATE WORKOUT</button>').replace(/<button class="btn secondary" onclick="go\(\'library\'\)">EXERCISE LIBRARY<\/button>/g,'')};
+const previousWorkoutBuilder=workout;
+workout=function(){const h=previousWorkoutBuilder();if(!db.draft)return h;return h.replace(/<button class="btn secondary" onclick="addExerciseToDraft\(\)">\+ ADD EXERCISE<\/button>/g,'<button class="btn secondary" onclick="openExercisePicker(\'workout\')">+ ADD EXERCISES FROM LIBRARY</button>')};
+const previousFinishBuilder=finish;
+finish=function(){
+if(db.draft){const d=db.draft,p=plan(d.plan);if(p&&!p.id.startsWith('adhoc')){const extras=d.exercises.filter(e=>e.addedAdhoc).map(e=>e.id);if(extras.length){const unique=[...new Set(extras)];if(confirm('Save these '+unique.length+' extra exercise(s) permanently to '+p.name+' for next time?')){for(const id of extras)p.ex.push([id,isCardioExercise(id)?15:8,isCardioExercise(id)?30:12]);save()}}}}
+return previousFinishBuilder();
+};
+
 render();if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
 </script></body></html>
