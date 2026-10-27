@@ -1180,6 +1180,19 @@ function gsStartRest(button,seconds){
   button.textContent='REST '+remaining+'s · TAP TO RESTART';
  },1000);
 }
+function gsAddGroupRound(group){
+ if(!db.draft)return;
+ const entries=db.draft.exercises.filter(e=>e.superset===group);
+ for(const e of entries){const last=e.sets.at(-1)||{kg:0,reps:e.min||8,done:false};e.sets.push({...last,done:false})}
+ save();render();
+}
+function gsRemoveGroupRound(group){
+ if(!db.draft)return;
+ const entries=db.draft.exercises.filter(e=>e.superset===group);
+ if(!entries.length||entries.some(e=>e.sets.length<=1))return;
+ if(entries.some(e=>e.sets.at(-1)?.done)&&!confirm('Remove the last round, including completed sets?'))return;
+ entries.forEach(e=>e.sets.pop());save();render();
+}
 function gsWorkout(){
  const d=db.draft;if(!d)return '<h2>No session open</h2>';
  const p=plan(d.plan),name=p?.name||'Workout';
@@ -1200,7 +1213,7 @@ function gsWorkout(){
    for(const i of indices)if(d.exercises[i].sets[j])out+=gsExerciseCard(d.exercises[i],i,j);
    if(j<rounds-1)out+='<div style="text-align:center;background:#262626;padding:14px;border-radius:9px;margin:12px 0"><strong class="lime">REST</strong><p class="muted" style="margin:4px 0">Then start round '+(j+2)+'</p><button class="ghost" onclick="gsStartRest(this,60)">START 60s REST</button></div>';
   }
-  out+='</section>';
+  out+='<div class="split" style="justify-content:flex-start;gap:8px"><button class="ghost" onclick="gsAddGroupRound(&quot;'+group+'&quot;)">+ ROUND</button><button class="ghost" onclick="gsRemoveGroupRound(&quot;'+group+'&quot;)">− ROUND</button></div></section>';
  }
  for(const [i,e] of d.exercises.entries())if(!grouped.has(i))out+=gsExerciseCard(e,i);
  out+='<div class="card"><div class="split"><h3>EXERCISES</h3><button class="ghost" onclick="openExercisePicker(\'workout\')">+ ADD EXERCISES</button></div><p class="muted">Choose exercises before or during the session.</p></div>';
