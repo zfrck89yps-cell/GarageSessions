@@ -1146,6 +1146,73 @@ startAdhoc=function(){
  save();start(id);
 };
 
+
+/* Consolidated active-session renderer: one card per exercise or per superset round. */
+function gsExerciseControls(e,i){
+ const group=e.superset||'';
+ const opts=['','A','B','C','D'].map(v=>'<option value="'+v+'" '+(group===v?'selected':'')+'>'+(v?'Group '+v:'No group')+'</option>').join('');
+ const efforts=[['','Not rated'],['1','1 · Easy'],['2','2 · Light'],['3','3 · Challenging'],['4','4 · Could not finish']].map(([v,t])=>'<option value="'+v+'" '+(String(e.effort??'')===v?'selected':'')+'>'+t+'</option>').join('');
+ return '<div class="grid" style="grid-template-columns:1fr 1fr;gap:10px"><div><label>SUPERSET</label><select aria-label="Superset group" onchange="setExerciseGroup('+i+',this.value)">'+opts+'</select></div><div><label>EFFORT</label><select aria-label="Effort rating" onchange="setExerciseEffort('+i+',this.value)">'+efforts+'</select></div></div>';
+}
+function gsSetRow(e,i,j){
+ const s=e.sets[j];if(!s)return '';
+ return '<div class="setrow"><span>'+(j+1)+'</span><input aria-label="Weight or resistance" type="number" min="0" step=".5" value="'+esc(s.kg)+'" onchange="setField('+i+','+j+',\'kg\',this.value)"><input aria-label="Reps or minutes" type="number" min="0" value="'+esc(s.reps)+'" onchange="setField('+i+','+j+',\'reps\',this.value)"><input aria-label="Set complete" type="checkbox" '+(s.done?'checked':'')+' onchange="setField('+i+','+j+',\'done\',this.checked)"></div>';
+}
+function gsExerciseCard(e,i,round=null){
+ const cardio=isCardioExercise(e.id)||timeOnlyExercise(e.id);
+ const rows=round===null?e.sets.map((s,j)=>gsSetRow(e,i,j)).join(''):gsSetRow(e,i,round);
+ const heading='<div class="split"><h3>'+(i+1)+'. '+esc(names[e.id]||e.id)+'</h3><button class="ghost" aria-label="Exercise instructions" onclick="showInfo(\''+e.id+'\')">ⓘ</button></div>';
+ const guidance=cardio?'':'<div class="weight-guidance" style="background:#242424;border-left:3px solid #c6ff00;padding:10px 12px;margin:12px 0"><small class="lime">WEIGHT GUIDANCE</small><p style="margin:5px 0 0">'+esc(advice(e))+'</p></div>';
+ return '<div class="card" id="exercise-'+i+(round===null?'':'-round-'+round)+'" style="margin:10px 0">'+heading+
+ (round===null||round===0?gsExerciseControls(e,i)+guidance:'')+
+ '<small>Target: '+e.min+'–'+e.max+(cardio?' min':' reps')+'</small>'+
+ '<div class="setrow tiny"><span>SET</span><span>KG</span><span>REPS</span><span>DONE</span></div>'+rows+
+ (round===null?'<div class="split" style="justify-content:flex-start;gap:8px"><button class="ghost" onclick="addSet('+i+')">+ Set</button><button class="ghost" onclick="removeSet('+i+')">− Set</button></div>':'')+'</div>';
+}
+function gsWorkout(){
+ const d=db.draft;if(!d)return '<h2>No session open</h2>';
+ const p=plan(d.plan),name=p?.name||'Workout';
+ const state=!d.clockStarted?'READY TO START':d.pausedAt?'PAUSED':'RUNNING';
+ const actions=!d.clockStarted?'<button class="btn" onclick="beginSessionClock()">START SESSION</button>':'<button class="ghost" onclick="toggleSessionPause()">'+(d.pausedAt?'RESUME':'PAUSE')+'</button><button class="btn" onclick="finish()">END & SAVE</button>';
+ let out='<div class="card"><small class="session-clock-state">'+state+'</small><div class="session-clock lime" style="font-size:1.65rem;font-weight:800;font-variant-numeric:tabular-nums">'+(d.clockStarted?clockText(sessionElapsed(d)):'00:00:00')+'</div><div class="split" style="justify-content:flex-start;flex-wrap:wrap">'+actions+'</div></div>';
+ out+='<div class="split"><h1>'+esc(name)+'</h1><button class="ghost" onclick="cancelWorkout()">Exit</button></div>';
+ const grouped=new Set();
+ const groupNames=[...new Set(d.exercises.map(e=>e.superset).filter(Boolean))].sort();
+ for(const group of groupNames){
+  const indices=d.exercises.map((e,i)=>e.superset===group?i:-1).filter(i=>i>=0);
+  if(indices.length<2)continue;
+  indices.forEach(i=>grouped.add(i));
+  const rounds=Math.max(...indices.map(i=>d.exercises[i].sets.length));
+  out+='<section class="card" style="border-color:#c6ff00"><h2>SUPERSET '+group+'</h2>';
+  for(let j=0;j<rounds;j++){
+   out+='<h3 class="lime" style="margin-top:18px">ROUND '+(j+1)+'</h3>';
+   for(const i of indices)if(d.exercises[i].sets[j])out+=gsExerciseCard(d.exercises[i],i,j);
+   if(j<rounds-1)out+='<div style="text-align:center;background:#262626;padding:14px;border-radius:9px;margin:12px 0"><strong class="lime">REST</strong><p class="muted" style="margin:4px 0">Then start round '+(j+2)+'</p></div>';
+  }
+  out+='</section>';
+ }
+ for(const [i,e] of d.exercises.entries())if(!grouped.has(i))out+=gsExerciseCard(e,i);
+ out+='<div class="card"><div class="split"><h3>EXERCISES</h3><button class="ghost" onclick="openExercisePicker(\'workout\')">+ ADD EXERCISES</button></div><p class="muted">Choose exercises before or during the session.</p></div>';
+ out+='<div class="card"><h3>SESSION NOTES</h3><textarea rows="4" oninput="db.draft.notes=this.value;save()">'+esc(d.notes||'')+'</textarea></div>';
+ return out;
+}
+workout=gsWorkout;
+/* Keep the dashboard concise: show actionable insights ahead of detailed charts. */
+function gsTrainingDashboard(){
+ const sessions=db.sessions.slice(-12);
+ const items=[];
+ const rated=sessions.flatMap(s=>(s.exercises||[]).filter(e=>Number(e.effort)>=1&&Number(e.effort)<=4));
+ const hard=rated.filter(e=>Number(e.effort)===4);
+ if(hard.length)items.push('<strong>Recovery:</strong> '+hard.length+' recent exercise rating'+(hard.length===1?'':'s')+' of 4 (could not finish). Consider reducing load or reps for those exercises.');
+ const easy=rated.filter(e=>Number(e.effort)<=2);
+ if(easy.length>=3)items.push('<strong>Progression:</strong> '+easy.length+' recent exercises felt easy or light. Check rep targets before making small increases.');
+ if(sessions.length>=6)items.push('<strong>Consistency:</strong> '+sessions.length+' sessions logged in your recent history. Review trends by exercise rather than chasing maximum lifts.');
+ if(!items.length)items.push('Log a few sessions and optional 1–4 effort ratings to see personalised insights here.');
+ return '<div class="card"><h2>YOUR TRAINING INSIGHTS</h2>'+items.map(x=>'<p>'+x+'</p>').join('')+'<small>Suggestions are based on your logs, not a medical assessment.</small></div>';
+}
+const gsPreviousProgress=progress;
+progress=function(){return gsTrainingDashboard()+gsPreviousProgress()};
+
 setInterval(clockTick,1000);
 
 render();if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
