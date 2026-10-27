@@ -131,5 +131,59 @@ const out='<h2>'+esc(names[id]||id)+'</h2>'+muscleMap(x.muscles)+'<p><b>Primary:
 document.querySelector('#modalbody').innerHTML=out;document.querySelector('#modal').showModal();
 };
 
+
+/* Two independent local profiles; existing saved training becomes the first profile. */
+const PROFILE_STORE='garage-sessions-profiles-v1';
+let profileState;
+try{profileState=JSON.parse(localStorage.getItem(PROFILE_STORE))}catch{}
+if(!profileState||!profileState.people||!Object.keys(profileState.people).length){
+profileState={active:'me',people:{me:{name:'Me',data:structuredClone(db)},jay:{name:'Jay',data:defaults()}}};
+localStorage.setItem(PROFILE_STORE,JSON.stringify(profileState));
+}
+if(!profileState.people[profileState.active])profileState.active=Object.keys(profileState.people)[0];
+db=profileState.people[profileState.active].data;
+const saveBeforeProfiles=save;
+save=function(){profileState.people[profileState.active].data=db;localStorage.setItem(PROFILE_STORE,JSON.stringify(profileState));localStorage.setItem(KEY,JSON.stringify(profileState.people.me?.data||db))};
+function switchProfile(id){if(!profileState.people[id])return;save();profileState.active=id;db=profileState.people[id].data;tab='home';save();render()}
+function addProfile(){const name=prompt('New profile name');if(!name?.trim())return;const id='person'+Date.now();profileState.people[id]={name:name.trim().slice(0,32),data:defaults()};switchProfile(id)}
+function renameProfile(){const p=profileState.people[profileState.active];const name=prompt('Profile name',p.name);if(name?.trim()){p.name=name.trim().slice(0,32);save();render()}}
+const oldNav=nav;
+nav=function(){oldNav();const header=document.querySelector('header');if(header){let pill=header.querySelector('.pill');if(pill)pill.innerHTML='<button class="ghost" style="font-size:.8rem" onclick="go(\'profiles\')">'+esc(profileState.people[profileState.active].name)+' ▾</button>'}};
+const oldRender=render;
+render=function(){if(tab==='profiles'){nav();document.querySelector('#app').innerHTML=profilePage();return}if(tab==='library'){nav();document.querySelector('#app').innerHTML=libraryPage();return}oldRender()};
+function profilePage(){return '<h1>TRAINING <span class="lime">PROFILES</span></h1><p class="muted">Each profile has its own plans, workout history, notes and progress. All data stays on this device.</p>'+Object.entries(profileState.people).map(([id,p])=>'<div class="card split"><div><h2>'+esc(p.name)+'</h2><small>'+p.data.sessions.length+' logged sessions</small></div><button class="btn '+(id===profileState.active?'secondary':'')+'" onclick="switchProfile(\''+id+'\')">'+(id===profileState.active?'Current':'Switch')+'</button></div>').join('')+'<p><button class="btn" onclick="addProfile()">+ NEW PROFILE</button> <button class="ghost" onclick="renameProfile()">Rename current</button></p><button class="ghost" onclick="go(\'library\')">Explore exercise library</button>'}
+const exerciseCatalog=[
+['squat','Legs','Dumbbell'],['step','Legs','Bodyweight'],['barbellrdl','Legs','Standard bar'],['rdl','Legs','Dumbbell'],['bridge','Legs','Bodyweight'],['inclinepress','Push','Bench + dumbbells'],['flatpress','Push','Bench + dumbbells'],['press','Push','Dumbbell'],['push','Push','Bodyweight'],['benchrow','Pull','Bench + dumbbell'],['row','Pull','Dumbbell'],['inclinecurl','Pull','Bench + dumbbells'],['suitcase','Pull','Bench + dumbbell'],['deadbug','Core','Mat'],['bike','Cardio','Spin bike'],
+['lateralraise','Push','Dumbbells'],['overheadpress','Push','Dumbbells'],['hammer','Pull','Dumbbells'],['tricep','Push','Dumbbell'],['splitstance','Legs','Dumbbells'],['calfraise','Legs','Bodyweight'],['plank','Core','Mat'],['bird','Core','Mat'],['hipthrust','Legs','Bench + dumbbell']
+];
+const extraExercises={
+lateralraise:['Dumbbell lateral raise','Stand tall with dumbbells at your sides. Raise arms out to the side with a slight elbow bend, stopping around shoulder height. Lower slowly.','Avoid shrugging or swinging. Start very light.',['shoulders']],
+overheadpress:['Seated dumbbell shoulder press','Sit on a locked, upright FID bench with feet planted. Start dumbbells near shoulders and press overhead without flaring ribs.','Use a light weight and avoid forcing a painful shoulder range.',['shoulders','triceps']],
+hammer:['Dumbbell hammer curl','Stand still with palms facing in. Curl dumbbells without swinging elbows forward, then lower slowly.','Keep wrists neutral and elbows close to torso.',['biceps']],
+tricep:['Two-hand dumbbell overhead extension','Hold one secure dumbbell with both hands overhead. Bend elbows to lower behind head, then straighten elbows.','Start light; avoid if shoulder or elbow discomfort.',['triceps']],
+splitstance:['Supported split-stance squat','Take a short staggered stance and hold a stable support. Lower a small comfortable distance and stand.','Only use if your knee tolerates it; avoid twisting or deep flexion.',['quads','glutes']],
+calfraise:['Standing calf raise','Stand still with fingertips on a stable support. Rise onto toes, pause, and lower slowly.','Keep ankles aligned and use full comfortable range.',['quads']],
+plank:['Forearm plank','Place forearms on a mat and extend legs behind you, or keep knees down. Brace trunk and hold while breathing.','Avoid sagging hips or holding your breath.',['core']],
+bird:['Bird dog','On hands and knees, extend one arm and opposite leg, pause, and return. Alternate slowly.','Keep hips level and avoid rotating.',['core','glutes']],
+hipthrust:['Bench-supported hip thrust','Sit on floor with shoulder blades against a stable locked bench, knees bent. Drive hips up through heels and lower under control.','Ensure the bench cannot slide; keep ribs down.',['glutes','hamstrings']]
+};
+for(const [id,[name,how,tips]] of Object.entries(extraExercises)){names[id]=name;info[id]=[how,tips]}
+const oldPlansWithLibrary=plans;
+plans=function(){return oldPlansWithLibrary()+'<p><button class="btn secondary" onclick="go(\'library\')">BROWSE EXERCISE LIBRARY →</button></p>'};
+let libraryFilter='All',librarySearch='',libraryTarget=null;
+function libraryPage(){
+const categories=['All','Legs','Push','Pull','Core','Cardio'];
+const filtered=exerciseCatalog.filter(([id,cat])=>(libraryFilter==='All'||cat===libraryFilter)&&(!librarySearch||names[id].toLowerCase().includes(librarySearch.toLowerCase())));
+return '<div class="split"><h1>EXERCISE <span class="lime">LIBRARY</span></h1><button class="ghost" onclick="go(\'plans\')">Plans</button></div><p class="muted">Find exercises for your available equipment. No anchor points or rack needed.</p><input aria-label="Search exercises" placeholder="Search exercises..." value="'+esc(librarySearch)+'" oninput="librarySearch=this.value;document.querySelector(\'#libraryresults\').innerHTML=libraryResults()"><div style="display:flex;gap:6px;overflow-x:auto;padding:12px 0">'+categories.map(x=>'<button class="'+(libraryFilter===x?'btn':'ghost')+'" onclick="libraryFilter=\''+x+'\';render()">'+x+'</button>').join('')+'</div><div id="libraryresults">'+libraryResults()+'</div>';
+}
+function libraryResults(){
+return exerciseCatalog.filter(([id,cat])=>(libraryFilter==='All'||cat===libraryFilter)&&(!librarySearch||names[id].toLowerCase().includes(librarySearch.toLowerCase()))).map(([id,cat,equipment])=>'<div class="card"><div class="split"><div><h3>'+esc(names[id])+'</h3><small>'+cat+' · '+equipment+'</small></div><button class="ghost" onclick="showInfo(\''+id+'\')">ⓘ</button></div><button class="btn secondary" onclick="addToPlanFromLibrary(\''+id+'\')">+ Add to plan</button></div>').join('')||'<p>No matching exercises.</p>';
+}
+function addToPlanFromLibrary(id){let options=db.plans.map((p,i)=>(i+1)+': '+p.name).join('\n');let answer=prompt('Add '+names[id]+' to which plan?\n'+options+'\nEnter plan number');if(answer===null)return;let p=db.plans[Number(answer)-1];if(!p){alert('Choose a valid plan number.');return}p.ex.push([id,8,12]);save();render()}
+const oldSettingsWithProfiles=settings;
+settings=function(){return oldSettingsWithProfiles()+'<div class="card"><h3>PROFILES & EXERCISES</h3><p>Current profile: '+esc(profileState.people[profileState.active].name)+'</p><button class="btn secondary" onclick="go(\'profiles\')">MANAGE PROFILES</button> <button class="ghost" onclick="go(\'library\')">EXERCISE LIBRARY</button></div>'};
+const previousShowInfo=showInfo;
+showInfo=function(id){if(extraExercises[id]&&!coaching[id]){const [name,how,tips,muscles]=extraExercises[id];document.querySelector('#modalbody').innerHTML='<h2>'+esc(name)+'</h2>'+muscleMap(muscles)+'<h3>How to perform</h3><p>'+esc(how)+'</p><h3>Technique & safety</h3><p>'+esc(tips)+'</p>';document.querySelector('#modal').showModal();return}previousShowInfo(id)};
+
 render();if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
 </script></body></html>
