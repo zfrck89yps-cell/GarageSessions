@@ -1090,6 +1090,43 @@ workout=function(){
  return container.innerHTML;
 };
 
+
+/* Four-level effort analytics: low = manageable, high = demanding. */
+function effortLabel(n){return ({1:'Easy',2:'Light effort',3:'Challenging',4:'Could not finish set'})[n]||'Not rated'}
+function effortOverview(){
+ const recent=db.sessions.slice(-20);
+ const rated=recent.flatMap(s=>(s.exercises||[]).filter(e=>e.effort>=1&&e.effort<=4).map(e=>({id:e.id,effort:Number(e.effort),date:s.date})));
+ if(!rated.length)return '<div class="card"><h3>EFFORT ANALYSIS</h3><p class="muted">Rate exercises from 1 to 4 during sessions to see effort trends and better weight recommendations.</p></div>';
+ const counts=[1,2,3,4].map(n=>rated.filter(e=>e.effort===n).length);
+ const average=rated.reduce((sum,e)=>sum+e.effort,0)/rated.length;
+ const last=rated.slice(-6),prior=rated.slice(-12,-6);
+ const avg=xs=>xs.reduce((s,x)=>s+x.effort,0)/Math.max(1,xs.length);
+ let trend='More sessions are needed to compare effort.';
+ if(prior.length>=3&&last.length>=3){const diff=avg(last)-avg(prior);trend=diff>0.5?'Recent exercises are feeling harder. Check recovery and avoid increasing weight.':diff< -0.5?'Recent exercises are feeling easier. You may be ready for gradual progression.':'Effort has been fairly steady.'}
+ const hard=rated.filter(e=>e.effort===4).slice(-5);
+ return '<div class="card"><h3>EFFORT ANALYSIS</h3><div class="stat">'+average.toFixed(1)+' / 4</div><p class="muted">Average of '+rated.length+' rated exercises across your last 20 sessions. Lower means easier.</p>'+
+ counts.map((count,i)=>'<div class="split" style="padding:6px 0"><span>'+(i+1)+'. '+effortLabel(i+1)+'</span><strong>'+count+'</strong></div>').join('')+
+ '<p>'+esc(trend)+'</p>'+(hard.length?'<p class="muted">Exercises recently marked unable to finish: '+hard.map(x=>esc(names[x.id]||x.id)).join(' · ')+'</p>':'')+'</div>';
+}
+const effortProgressOverview=progress;
+progress=function(){return effortProgressOverview()+effortOverview()};
+const fourPointAdvice=advice;
+advice=function(e){
+ if(isCardioExercise(e.id)||timeOnlyExercise(e.id))return fourPointAdvice(e);
+ const history=effortStats(e.id,12),recent=history.slice(-4);
+ const base=fourPointAdvice(e);
+ if(!recent.length)return base;
+ const hard=recent.filter(x=>x.effort===4).length;
+ const challenging=recent.filter(x=>x.effort===3).length;
+ const easy=recent.filter(x=>x.effort<=2).length;
+ if(hard>=2)return 'Hold or reduce weight: you marked this exercise as unable to finish in '+hard+' of the last '+recent.length+' rated sessions. Aim for manageable, complete sets before progressing.';
+ if(hard===1)return 'Do not increase yet: one of your recent sessions was rated 4 (could not finish). Repeat a manageable load and review technique and recovery.';
+ if(challenging>=2)return 'Maintain your current working weight: recent sessions were challenging. Build comfortable, controlled reps before increasing.';
+ if(recent.length>=3&&easy===recent.length&&base.startsWith('Optional small increase'))return 'Small increase may be appropriate: your recent effort ratings were easy/light and your logged reps met the target. Increase only if you feel ready.';
+ if(recent.length>=3&&easy===recent.length)return base+' Your recent effort ratings suggest this load is manageable.';
+ return base;
+};
+
 setInterval(clockTick,1000);
 
 render();if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
