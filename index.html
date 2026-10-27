@@ -690,7 +690,7 @@ function editSessionFinish(t){
  const value=prompt('Edit finish date and time (YYYY-MM-DDTHH:MM)',local(end));
  if(value===null)return;
  const parsed=new Date(value);
- if(!/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}$/.test(value)||!Number.isFinite(parsed.getTime())||parsed<start||parsed>Date.now()+60000){alert('Enter a valid finish time after the start, not in the future.');return}
+ if(!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)||!Number.isFinite(parsed.getTime())||parsed<start||parsed>Date.now()+60000){alert('Enter a valid finish time after the start, not in the future.');return}
  s.completed=parsed.getTime();s.durationMs=Math.max(0,s.completed-(s.started||s.completed)-(Number(s.pausedMs)||0));save();render();
 }
 const sessionClockHistory=history;
