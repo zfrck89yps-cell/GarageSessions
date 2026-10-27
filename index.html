@@ -675,7 +675,7 @@ workout=function(){
   ?'<button class="btn" onclick="beginSessionClock()">START SESSION</button>'
   :'<button class="ghost" onclick="toggleSessionPause()">'+(d.pausedAt?'RESUME':'PAUSE')+'</button><button class="btn" onclick="finish()">END & SAVE</button>';
  const controls='<div class="card" style="background:#151515;border-color:#404040;padding:12px 14px"><div class="split" style="gap:12px;flex-wrap:wrap"><div><small class="session-clock-state">'+(!d.clockStarted?'READY TO START':d.pausedAt?'PAUSED':'RUNNING')+'</small><div class="session-clock" role="timer" style="font-size:1.65rem;font-weight:850;font-variant-numeric:tabular-nums;color:#c6ff00">'+(d.clockStarted?clockText(sessionElapsed(d)):'00:00:00')+'</div></div><div style="display:flex;gap:8px;flex-wrap:wrap">'+actions+'</div></div></div>';
- return controls+h+controls;
+ return controls+h;
 };
 const sessionClockFinish=finish;
 finish=function(){
