@@ -719,6 +719,67 @@ history=function(){
  }
  return h;
 };
+
+/* Training intelligence: computed from completed logged sets only. */
+function strengthEntries(){
+ const out=[];
+ for(const s of db.sessions)for(const e of s.exercises||[]){
+  if(isCardioExercise(e.id)||timeOnlyExercise(e.id))continue;
+  const sets=(e.sets||[]).filter(z=>z.done&&Number(z.kg)>0&&Number(z.reps)>0);
+  if(sets.length)out.push({date:s.date,id:e.id,sets});
+ }
+ return out.sort((a,b)=>a.date.localeCompare(b.date));
+}
+function exerciseRecords(){
+ const by=new Map();
+ for(const e of strengthEntries()){
+  let r=by.get(e.id)||{id:e.id,maxKg:0,maxReps:0,maxVolume:0,bestEstimated1RM:0,sessions:0,lastDate:''};
+  r.sessions++;r.lastDate=e.date;
+  for(const z of e.sets){
+   const kg=Number(z.kg),reps=Number(z.reps);
+   r.maxKg=Math.max(r.maxKg,kg);
+   r.maxReps=Math.max(r.maxReps,reps);
+   r.maxVolume=Math.max(r.maxVolume,kg*reps);
+   if(reps<=12)r.bestEstimated1RM=Math.max(r.bestEstimated1RM,kg*(1+reps/30));
+  }
+  by.set(e.id,r);
+ }
+ return [...by.values()].sort((a,b)=>b.lastDate.localeCompare(a.lastDate));
+}
+function trainingIntelligence(){
+ const entries=strengthEntries(),records=exerciseRecords();
+ if(!entries.length)return '<div class="card"><h3>PERSONAL RECORDS & TRAINING LOAD</h3><p class="muted">Complete weighted sets to unlock personal records, weekly training volume and progression insights.</p></div>';
+ const today=Date.now(),week=7*864e5;
+ const buckets=[0,1,2,3].map(n=>entries.filter(e=>{const t=new Date(e.date+'T12:00:00').getTime(),age=today-t;return age>=n*week&&age<(n+1)*week}));
+ const totals=buckets.map(rows=>rows.reduce((a,e)=>a+e.sets.reduce((b,z)=>b+Number(z.kg)*Number(z.reps),0),0));
+ const cat={};
+ for(const e of buckets[0]){const group=exerciseCatalog.find(x=>x[0]===e.id)?.[1]||'Other';cat[group]=(cat[group]||0)+e.sets.length}
+ const groups=Object.entries(cat).sort((a,b)=>b[1]-a[1]);
+ const recordsHtml=records.slice(0,12).map(r=>'<div class="split" style="padding:10px 0;border-bottom:1px solid #333;align-items:flex-start"><div style="min-width:0"><strong>'+esc(names[r.id]||r.id)+'</strong><br><small>'+r.sessions+' logged session'+(r.sessions===1?'':'s')+' · '+esc(r.lastDate)+'</small></div><div style="text-align:right;flex-shrink:0"><strong class="lime">'+r.maxKg.toFixed(1)+' kg</strong><br><small>Best set '+r.maxVolume.toFixed(1)+' kg·reps</small></div></div>').join('');
+ const trend=totals[1]>0?((totals[0]-totals[1])/totals[1]*100):null;
+ return '<div class="card"><h3>PERSONAL RECORDS</h3><p class="muted">Heaviest completed set for each exercise. Best set volume is weight × reps, not total workout volume.</p>'+recordsHtml+'</div>'+
+ '<div class="card"><h3>WEEKLY TRAINING LOAD</h3><div class="stat">'+Math.round(totals[0]).toLocaleString('en-GB')+' kg·reps</div><p class="muted">Last 7 days'+(trend===null?' · Keep logging for a comparison':' · '+(trend>=0?'+':'')+trend.toFixed(0)+'% versus previous 7 days')+'</p>'+
+ '<div class="grid">'+totals.map((n,i)=>'<div><small>'+(i===0?'Last 7 days':(i*7+1)+'–'+((i+1)*7)+' days ago')+'</small><strong style="display:block">'+Math.round(n).toLocaleString('en-GB')+'</strong></div>').join('')+'</div></div>'+
+ '<div class="card"><h3>SETS BY EXERCISE CATEGORY</h3><p class="muted">Completed strength sets over the last 7 days. Categories are approximate, not a precise muscle-group breakdown.</p>'+(groups.length?groups.map(([g,n])=>'<div class="split" style="margin:9px 0"><span>'+esc(g)+'</span><strong>'+n+' sets</strong></div>').join(''):'<p class="muted">No completed strength sets this week.</p>')+'</div>';
+}
+const oldProgressIntelligence=progress;
+progress=function(){return oldProgressIntelligence()+trainingIntelligence()};
+const previousAdviceIntelligence=advice;
+advice=function(e){
+ if(isCardioExercise(e.id)||timeOnlyExercise(e.id))return previousAdviceIntelligence(e);
+ const history=strengthEntries().filter(x=>x.id===e.id).slice(-5);
+ if(history.length<3)return 'Log at least 3 sessions to unlock a reliable progression recommendation.';
+ const last=history.slice(-3),sameLoad=last.every(x=>x.sets[0]&&Number(x.sets[0].kg)===Number(last[0].sets[0].kg));
+ const complete=last.every(x=>x.sets.length&&x.sets.every(z=>Number(z.reps)>=Number(e.max)));
+ if(sameLoad&&complete){
+  const load=Number(last[0].sets[0].kg),step=load<20?0.5:load<50?1:2.5;
+  return 'Progression: top of your rep range reached in 3 sessions at '+load+' kg. If technique and recovery are good, try '+(load+step)+' kg next time.';
+ }
+ const recent=history.slice(-3).map(x=>Math.max(...x.sets.map(z=>Number(z.kg)*Number(z.reps))));
+ if(recent.length===3&&recent[2]<=recent[1]&&recent[1]<=recent[0])return 'No improvement in best-set volume across 3 sessions. Check sleep, recovery and technique; consider an easier session before adding weight.';
+ return 'Keep working towards '+e.max+' clean reps on each set before increasing the load.';
+};
+
 setInterval(clockTick,1000);
 
 render();if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
