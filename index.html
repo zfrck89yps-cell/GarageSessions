@@ -543,7 +543,7 @@ if(localStorage.getItem(flag)!=='done'){
 const activeData=profileState?.people?.[profileState.active]?.data;
 if(activeData)db=activeData;
 localStorage.setItem(flag,'done');
-}
+}else{try{const stored=JSON.parse(localStorage.getItem(KEY));if(stored&&Array.isArray(stored.plans)&&Array.isArray(stored.sessions))db=stored}catch{}}
 save=function(){localStorage.setItem(KEY,JSON.stringify(db))};
 save();
 })();
