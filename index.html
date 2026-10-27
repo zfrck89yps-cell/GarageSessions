@@ -1315,38 +1315,59 @@ showInfo=function(id){
 };
 
 
-/* Import a standalone training plan without replacing history or existing workouts. */
+
+/* Selective plan import: check which existing workouts to remove; preserve all history. */
+let gsPendingPlanImport=null;
 async function importTrainingPlan(file){
  if(!file)return;
  try{
   const data=JSON.parse(await file.text());
-  if(data.format!=='garage-sessions-plan-v1'||!Array.isArray(data.plans)||!data.schedule||!Array.isArray(data.schedule.slots))throw Error('This is not a Garage Sessions training plan.');
-  if(db.draft&&draftHasProgress(db.draft))throw Error('Finish your active workout before importing a new schedule.');
-  if(![1,2,3,4,6,8].includes(Number(data.schedule.weeks)))throw Error('Unsupported schedule length.');
-  if(!/^\d{4}-\d{2}-\d{2}$/.test(data.schedule.anchor))throw Error('Invalid start date.');
+  if(data.format!=='garage-sessions-plan-v1'||!Array.isArray(data.plans)||!data.schedule||!Array.isArray(data.schedule.slots))throw Error('Not a Garage Sessions plan file.');
+  if(db.draft&&draftHasProgress(db.draft))throw Error('Finish your active session before importing.');
+  if(![1,2,3,4,6,8].includes(Number(data.schedule.weeks)))throw Error('Unsupported rotation length.');
+  if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(data.schedule.anchor))throw Error('Invalid schedule anchor.');
   const ids=new Set();
   for(const p of data.plans){
-   if(!p||typeof p.id!=='string'||!/^plan-[a-z0-9-]+$/.test(p.id)||ids.has(p.id)||typeof p.name!=='string'||!Array.isArray(p.ex)||!p.ex.length)throw Error('Invalid workout in plan.');
+   if(!p||typeof p.id!=='string'||!/^plan-[a-z0-9-]+$/.test(p.id)||ids.has(p.id)||typeof p.name!=='string'||!Array.isArray(p.ex)||!p.ex.length)throw Error('Invalid workout entry.');
    ids.add(p.id);
    for(const [eid,min,max] of p.ex){
     if(!Object.prototype.hasOwnProperty.call(names,eid))throw Error('Unknown exercise: '+eid);
-    if(!Number.isFinite(min)||!Number.isFinite(max)||min<=0||max<min)throw Error('Invalid targets for '+eid);
+    if(!Number.isFinite(min)||!Number.isFinite(max)||min<=0||max<min)throw Error('Invalid exercise targets.');
    }
+   for(const [index,group] of Object.entries(p.groups||{}))if(!/^\\d+$/.test(index)||Number(index)>=p.ex.length||!['A','B','C','D'].includes(group))throw Error('Invalid superset assignment.');
   }
   for(const slot of data.schedule.slots)if(!ids.has(slot.plan)||!Number.isInteger(slot.week)||slot.week<0||slot.week>=data.schedule.weeks||!Number.isInteger(slot.day)||slot.day<0||slot.day>6)throw Error('Invalid scheduled day.');
-  if(!confirm('Import '+data.plans.length+' workouts and replace your current repeating schedule? Your workout history and other saved workouts will be kept.'))return;
-  for(const p of data.plans){
-   const index=db.plans.findIndex(x=>x.id===p.id);
-   const item={id:p.id,name:p.name,type:p.type==='cardio'?'cardio':'strength',ex:p.ex.map(x=>[...x]),groups:{...(p.groups||{})}};
-   if(index>=0)db.plans[index]=item;else db.plans.push(item);
-  }
-  db.schedule={weeks:data.schedule.weeks,anchor:data.schedule.anchor,slots:data.schedule.slots.map(s=>({...s}))};
-  save();tab='savedplans';render();alert('Training plan imported. Your existing history is safe.');
+  gsPendingPlanImport=data;
+  gsShowPlanImportReview();
  }catch(err){alert('Plan import failed: '+err.message)}
+}
+function gsShowPlanImportReview(){
+ const data=gsPendingPlanImport;if(!data)return;
+ const current=db.plans.filter(p=>!p.id.startsWith('adhoc'));
+ const scheduled=new Set((db.schedule?.slots||[]).map(s=>s.plan));
+ const rows=current.map(p=>'<label style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid #333"><input class="gs-import-remove" type="checkbox" value="'+esc(p.id)+'" '+(scheduled.has(p.id)?'checked':'')+' style="width:22px;height:22px;flex:none"><span><strong>'+esc(p.name)+'</strong><small style="display:block">'+p.ex.length+' exercises'+(scheduled.has(p.id)?' · currently scheduled':' · saved only')+'</small></span></label>').join('');
+ const modal=document.querySelector('#modal');
+ document.querySelector('#modalbody').innerHTML='<h2>IMPORT TRAINING PLAN</h2><p>New plan: <strong>'+data.plans.length+' workouts</strong>, repeating every '+data.schedule.weeks+' weeks.</p><h3>Choose workouts to remove</h3><p class="muted">Tick any existing workouts you want deleted. Scheduled workouts are preselected. Untick to keep them. Completed workout history is never deleted.</p>'+(rows||'<p class="muted">No existing saved workouts to remove.</p>')+'<p class="muted">The new two-week schedule will replace the current calendar, even if you keep old workouts.</p><button class="btn" style="width:100%;margin-top:12px" onclick="gsConfirmPlanImport()">IMPORT PLAN</button><button class="ghost" style="width:100%;margin-top:8px" onclick="gsCancelPlanImport()">CANCEL</button>';
+ modal.showModal();modal.scrollTop=0;
+ const close=modal.querySelector(':scope > p:last-child');if(close)close.style.display='none';
+ modal.addEventListener('close',gsImportModalClosed,{once:true});
+}
+function gsImportModalClosed(){const modal=document.querySelector('#modal');const close=modal?.querySelector(':scope > p:last-child');if(close)close.style.display='';gsPendingPlanImport=null}
+function gsCancelPlanImport(){document.querySelector('#modal').close()}
+function gsConfirmPlanImport(){
+ const data=gsPendingPlanImport;if(!data)return;
+ const removed=new Set([...document.querySelectorAll('.gs-import-remove:checked')].map(x=>x.value));
+ const incoming=new Set(data.plans.map(p=>p.id));
+ const collisions=db.plans.filter(p=>incoming.has(p.id)&&!removed.has(p.id));
+ if(collisions.length&&!confirm('Imported workouts have matching IDs and will update '+collisions.length+' existing workout(s). Continue?'))return;
+ db.plans=db.plans.filter(p=>!removed.has(p.id)&&!incoming.has(p.id));
+ for(const p of data.plans)db.plans.push({id:p.id,name:p.name,type:p.type==='cardio'?'cardio':'strength',ex:p.ex.map(x=>[...x]),groups:{...(p.groups||{})}});
+ db.schedule={weeks:Number(data.schedule.weeks),anchor:data.schedule.anchor,slots:data.schedule.slots.map(s=>({...s}))};
+ save();document.querySelector('#modal').close();tab='savedplans';render();alert('Plan imported. Workout history preserved.');
 }
 const gsSettingsWithPlanImport=settings;
 settings=function(){
- return gsSettingsWithPlanImport()+'<div class="card"><h3>IMPORT TRAINING PLAN</h3><p class="muted">Import a Garage Sessions plan file. This adds workouts and sets your repeating schedule without deleting logged sessions. It does not use Restore backup.</p><input type="file" accept=".json,application/json" aria-label="Import training plan JSON" onchange="importTrainingPlan(this.files[0]);this.value=\'\'"></div>';
+ return gsSettingsWithPlanImport()+'<div class="card"><h3>IMPORT TRAINING PLAN</h3><p class="muted">Import workouts and choose which existing sessions to remove. Your completed history is always kept.</p><input type="file" accept=".json,application/json" aria-label="Import training plan JSON" onchange="importTrainingPlan(this.files[0]);this.value=\'\'"></div>';
 };
 
 setInterval(clockTick,1000);
