@@ -1,13 +1,13 @@
 {
   "name": "Garage Sessions",
-  "short_name": "GarageSessions",
+  "short_name": "Garage Sessions",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#000000",
   "theme_color": "#000000",
   "icons": [
     {
-      "src": "icon.svg",
+      "src": "icon.svg?v=2",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"
