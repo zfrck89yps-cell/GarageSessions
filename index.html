@@ -1400,6 +1400,36 @@ const gsSetFieldOriginal=setField;
 setField=function(i,j,k,v){const e=db.draft?.exercises[i];if(!e)return;const previous=e.sets.map(s=>({...s}));gsSetFieldOriginal(i,j,k,v);if(k!=='kg'&&k!=='reps')return;const value=Number(v);if(!Number.isFinite(value)||value<0)return;for(let n=j+1;n<e.sets.length;n++){const next=e.sets[n];if(!next.done&&(next[k]===previous[j][k]||next[k]===0||next[k]==null))next[k]=value}save();const card=document.getElementById('exercise-'+i);if(card){const rows=card.querySelectorAll('.setrow');for(let n=j+1;n<e.sets.length;n++){const field=rows[n+1]?.querySelectorAll('input[type="number"]')[k==='kg'?0:1];if(field&&document.activeElement!==field)field.value=e.sets[n][k]}}};
 const gsHomeOriginal=home;
 home=function(){const saved=db.plans.filter(p=>!p.id.startsWith('adhoc'));return gsHomeOriginal()+(saved.length?'<div class="card"><h3>START SAVED WORKOUT</h3><select id="gs-home-saved">'+saved.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name)+'</option>').join('')+'</select><button class="btn" onclick="start(document.getElementById(\'gs-home-saved\').value)">START WORKOUT</button></div>':'')};
+
+/* Rich technique guidance and licensed start/finish illustrations. */
+const gsTechnique={
+ 'bulgarian split squat':{slug:'bulgarian-split-squat',steps:['Stand facing away from the bench. Place the top of your rear foot on it, with most weight on your front leg.','Choose a front-foot position where your heel stays down and you feel balanced.','Lower slowly by bending the front knee; let the knee follow your toes.','Push through the front foot to rise.'],tips:['Start without weights and hold a stable support for balance.','Move the front foot if the stance feels cramped or overstretched.','Use a comfortable depth; stop if your knee hurts.']},
+ 'goblet squat':{slug:'goblet-squat',steps:['Hold one dumbbell vertically against your chest.','Stand about shoulder width with toes turned out slightly.','Sit down between your hips, keeping your whole foot on the floor.','Push through your feet to stand tall.'],tips:['Keep your knees tracking towards your toes.','Only squat as deep as feels comfortable for your knees.']},
+ 'flat dumbbell bench press':{slug:'dumbbell-bench-press',steps:['Lie back on the flat backrest with feet planted and hips supported.','Hold a dumbbell in each hand beside your chest, wrists stacked above elbows.','Press both dumbbells up without clashing them.','Lower slowly to a comfortable chest-level position.'],tips:['Record the weight of ONE dumbbell in Garage Sessions.','Keep shoulders stable and avoid flaring elbows straight out.']},
+ 'incline dumbbell bench press':{slug:'incline-dumbbell-bench-press',steps:['Set the backrest to a modest incline and sit with feet planted.','Hold dumbbells at upper-chest level, elbows slightly below shoulders.','Press up and slightly inwards.','Lower under control without bouncing.'],tips:['Avoid setting the backrest so upright that it becomes a shoulder press.','Keep your hips supported on the seat.']},
+ 'bench-supported one-arm dumbbell row':{slug:'one-arm-dumbbell-row',steps:['Put one hand on the bench and step the opposite foot back for a stable base.','Let the dumbbell hang below your shoulder.','Pull your elbow towards your hip, keeping your torso still.','Lower until your arm is extended, then repeat.'],tips:['Avoid twisting your torso to lift the weight.','Use the bench for support, not momentum.']},
+ 'dumbbell romanian deadlift':{slug:'dumbbell-romanian-deadlift',steps:['Stand tall with dumbbells in front of your thighs.','Soften your knees, then push your hips backwards.','Lower the dumbbells close to your legs until you feel your hamstrings stretch.','Drive your hips forward to stand.'],tips:['This is a hip hinge, not a squat.','Stop before your lower back starts to round.']},
+ 'dumbbell hip thrust':{slug:'hip-thrust',steps:['Place your upper back against the edge of a stable bench.','Set your feet about hip-width apart and position a padded dumbbell securely across your hips.','Lift your hips by pushing through your feet.','Pause with ribs down and hips level, then lower slowly.'],tips:['Hold the dumbbell firmly in place.','Do not use an elastic connector to hold weights across your hips.']},
+ 'incline push-up':{slug:'incline-push-up',steps:['Place hands on a stable bench, slightly wider than shoulders.','Step your feet back into a straight line from head to heels.','Lower your chest towards the bench with elbows angled back.','Push back up without letting your hips sag.'],tips:['Make sure the bench cannot slide or tip.','The higher the hands, the easier the movement.']}
+};
+const gsPriorShowInfoRich=showInfo;
+showInfo=function(id){
+ gsPriorShowInfoRich(id);
+ const body=document.querySelector('#modalbody');if(!body)return;
+ const name=names[id]||id,key=name.toLowerCase();
+ let data=gsTechnique[key];
+ if(!data&&/bulgarian|rear foot elevated/.test(key))data=gsTechnique['bulgarian split squat'];
+ if(!data&&/incline.*push.?up/.test(key))data=gsTechnique['incline push-up'];
+ if(!data&&/goblet.*squat/.test(key))data=gsTechnique['goblet squat'];
+ if(!data&&/romanian deadlift/.test(key))data=gsTechnique['dumbbell romanian deadlift'];
+ const existing=info[id]||[];
+ const steps=data?.steps||(existing[0]&&!/Use controlled form/i.test(existing[0])?[existing[0]]:[]);
+ const tips=data?.tips||(existing[1]?[existing[1]]:[]);
+ const slug=data?.slug;
+ const media=slug?'<div class="grid" style="grid-template-columns:1fr 1fr;gap:8px;margin:12px 0">'+['start','peak'].map((stage,i)=>'<div><img loading="lazy" src="https://raw.githubusercontent.com/RepDB/exercise-dataset/main/images/flat/'+slug+'-'+stage+'.webp" alt="'+esc(name)+' '+(i?'finish':'start')+' position" style="width:100%;border-radius:8px;background:#eee" onerror="this.parentElement.style.display=\'none\'"><small>'+(i?'FINISH':'START')+'</small></div>').join('')+'</div><small>Exercise illustrations by <a href="https://repdb.co/" target="_blank" rel="noopener noreferrer">RepDB</a></small>':'';
+ const video='<p><a class="ghost" style="display:inline-block" target="_blank" rel="noopener noreferrer" href="https://www.youtube.com/results?search_query='+encodeURIComponent(name+' exercise correct form demonstration')+'">▶ FIND VIDEO DEMONSTRATION</a></p>';
+ body.innerHTML='<h2>'+esc(name)+'</h2>'+media+'<h3>HOW TO DO IT</h3>'+(steps.length?'<ol>'+steps.map(x=>'<li style="margin-bottom:9px">'+esc(x)+'</li>').join('')+'</ol>':'<p>Detailed instructions for this exercise are being added. Use a demonstration before trying an unfamiliar movement.</p>')+(tips.length?'<h3>FORM CHECK</h3><ul>'+tips.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':'')+video;
+};
 setInterval(clockTick,1000);
 
 render();if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
