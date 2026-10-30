@@ -1193,19 +1193,13 @@ function gsExerciseCard(e,i,round=null){
  (round===null||round===0?gsExerciseControls(e,i)+guidance:'')+
  '<small>Target: '+e.min+'–'+e.max+(cardio?' min':' reps')+'</small>'+
  '<div class="setrow tiny"><span>SET</span><span>KG</span><span>REPS</span><span>DONE</span></div>'+rows+
- (round===null?'<div class="split" style="justify-content:flex-start;gap:8px"><button class="ghost" onclick="addSet('+i+')">+ Set</button><button class="ghost" onclick="removeSet('+i+')">− Set</button></div>':'')+'</div>';
+ (round===null?'<div class="split" style="justify-content:flex-start;gap:8px"><button class="ghost" onclick="addSet('+i+')">+ Set</button><button class="ghost" onclick="removeSet('+i+')">− Set</button></div>'+gsRestControl('ex-'+i):'')+'<button class="ghost" onclick="gsRemoveExercise('+i+')">REMOVE EXERCISE</button></div>';
 }
 let gsRestInterval=null;
-function gsStartRest(button,seconds){
- if(gsRestInterval)clearInterval(gsRestInterval);
- let remaining=seconds;
- button.textContent='REST '+remaining+'s · TAP TO RESTART';
- gsRestInterval=setInterval(()=>{
-  remaining--;
-  if(remaining<=0){clearInterval(gsRestInterval);gsRestInterval=null;button.textContent='REST COMPLETE · RESTART';return}
-  button.textContent='REST '+remaining+'s · TAP TO RESTART';
- },1000);
-}
+function gsRestControl(id){return '<div style="padding:10px 0"><strong>REST</strong> <button class="ghost" onclick="gsStartRest(this,60)">START 60s</button></div>'}
+function gsDing(){try{const C=window.AudioContext||window.webkitAudioContext,ctx=new C(),o=ctx.createOscillator(),g=ctx.createGain();o.frequency.value=880;g.gain.setValueAtTime(.12,ctx.currentTime);g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+.3);o.connect(g);g.connect(ctx.destination);o.start();o.stop(ctx.currentTime+.3);o.onended=()=>ctx.close()}catch{}}
+function gsStartRest(button,seconds){if(gsRestInterval)clearInterval(gsRestInterval);const end=Date.now()+seconds*1000;const tick=()=>{const left=Math.max(0,Math.ceil((end-Date.now())/1000));if(!left){clearInterval(gsRestInterval);gsRestInterval=null;if(button.isConnected)button.textContent='DONE · RESTART';gsDing()}else if(button.isConnected)button.textContent='REST '+left+'s · RESTART'};tick();gsRestInterval=setInterval(tick,250)}
+function gsRemoveExercise(i){const e=db.draft?.exercises[i];if(!e)return;if(e.sets.some(s=>s.done)&&!confirm('Delete this exercise and its completed sets?'))return;db.draft.exercises.splice(i,1);save();render()}
 function gsAddGroupRound(group){
  if(!db.draft)return;
  const entries=db.draft.exercises.filter(e=>e.superset===group);
@@ -1237,9 +1231,8 @@ function gsWorkout(){
   for(let j=0;j<rounds;j++){
    out+='<h3 class="lime" style="margin-top:18px">ROUND '+(j+1)+'</h3>';
    for(const i of indices)if(d.exercises[i].sets[j])out+=gsExerciseCard(d.exercises[i],i,j);
-   if(j<rounds-1)out+='<div style="text-align:center;background:#262626;padding:14px;border-radius:9px;margin:12px 0"><strong class="lime">REST</strong><p class="muted" style="margin:4px 0">Then start round '+(j+2)+'</p><button class="ghost" onclick="gsStartRest(this,60)">START 60s REST</button></div>';
   }
-  out+='<div class="split" style="justify-content:flex-start;gap:8px"><button class="ghost" onclick="gsAddGroupRound(&quot;'+group+'&quot;)">+ ROUND</button><button class="ghost" onclick="gsRemoveGroupRound(&quot;'+group+'&quot;)">− ROUND</button></div></section>';
+  out+=gsRestControl('superset-'+group)+'<div class="split" style="justify-content:flex-start;gap:8px"><button class="ghost" onclick="gsAddGroupRound(&quot;'+group+'&quot;)">+ ROUND</button><button class="ghost" onclick="gsRemoveGroupRound(&quot;'+group+'&quot;)">− ROUND</button></div></section>';
  }
  for(const [i,e] of d.exercises.entries())if(!grouped.has(i))out+=gsExerciseCard(e,i);
  out+='<div class="card"><div class="split"><h3>EXERCISES</h3><button class="ghost" onclick="openExercisePicker(\'workout\')">+ ADD EXERCISES</button></div><p class="muted">Choose exercises before or during the session.</p></div>';
@@ -1402,6 +1395,11 @@ start=function(id){
  }
 };
 
+
+const gsSetFieldOriginal=setField;
+setField=function(i,j,k,v){const e=db.draft?.exercises[i];if(!e)return;const previous=e.sets.map(s=>({...s}));gsSetFieldOriginal(i,j,k,v);if(k!=='kg'&&k!=='reps')return;const value=Number(v);if(!Number.isFinite(value)||value<0)return;for(let n=j+1;n<e.sets.length;n++){const next=e.sets[n];if(!next.done&&(next[k]===previous[j][k]||next[k]===0||next[k]==null))next[k]=value}save();const card=document.getElementById('exercise-'+i);if(card){const rows=card.querySelectorAll('.setrow');for(let n=j+1;n<e.sets.length;n++){const field=rows[n+1]?.querySelectorAll('input[type="number"]')[k==='kg'?0:1];if(field&&document.activeElement!==field)field.value=e.sets[n][k]}}};
+const gsHomeOriginal=home;
+home=function(){const saved=db.plans.filter(p=>!p.id.startsWith('adhoc'));return gsHomeOriginal()+(saved.length?'<div class="card"><h3>START SAVED WORKOUT</h3><select id="gs-home-saved">'+saved.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name)+'</option>').join('')+'</select><button class="btn" onclick="start(document.getElementById(\'gs-home-saved\').value)">START WORKOUT</button></div>':'')};
 setInterval(clockTick,1000);
 
 render();if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
