@@ -21,11 +21,14 @@ jobs:
           const match=html.match(/<script>([\s\S]*?)<\/script>/);
           if(!match)throw Error('App script missing');
           new vm.Script(match[1]);
+          new vm.Script(fs.readFileSync('exercise-details.js','utf8'));
           console.log('PASS: JavaScript syntax');
           NODE
       - name: Install browser
         run: |
-          npm install --no-save playwright
+          npm install --no-save playwright jsdom
           npx playwright install --with-deps chromium
       - name: Browser smoke tests
         run: node tests/smoke.cjs
+      - name: Exercise details regression and coverage audit
+        run: node tests/exercise-details.cjs
