@@ -239,8 +239,6 @@ function startRest(seconds=restSeconds){restSeconds=Number(seconds)||90;restEnds
 function stopRest(){restEnds=0;if(restTimer)clearInterval(restTimer);restTimer=null;timerDisplay()}
 const oldWorkout=workout;
 workout=function(){const result=oldWorkout();if(!db.draft)return result;return result.replace('<button class="btn" style="width:100%"', '<div class="card"><div class="split"><div><small>REST TIMER</small><h2 id="timerdisplay">Ready</h2></div><button class="ghost" onclick="stopRest()">Stop</button></div><div class="grid three"><button class="ghost" onclick="startRest(60)">60s</button><button class="ghost" onclick="startRest(90)">90s</button><button class="ghost" onclick="startRest(120)">120s</button></div></div><button class="btn" style="width:100%"')}
-const oldSetField=setField;
-setField=function(i,j,k,v){oldSetField(i,j,k,v);if(k==='done'&&v&&db.draft?.exercises?.[i]?.id!=='bike')startRest()};
 function editHistorySession(t){const s=db.sessions.find(x=>x.completed===t);if(!s)return;let note=prompt('Edit session notes',s.notes||'');if(note===null)return;s.notes=note;save();render()}
 const oldHistory=history;
 history=function(){return oldHistory().replace(/<button class="ghost" onclick="deleteSession\((\d+)\)">Delete<\/button>/g,(_,t)=>'<div><button class="ghost" onclick="editHistorySession('+t+')">Edit note</button> <button class="ghost" onclick="deleteSession('+t+')">Delete</button></div>')}
@@ -1173,10 +1171,76 @@ function gsExerciseCard(e,i,round=null){
  '<div class="setrow tiny"><span>SET</span><span>KG</span><span>REPS</span><span>DONE</span></div>'+rows+
  (round===null?'<div class="split" style="justify-content:flex-start;gap:8px"><button class="ghost" onclick="addSet('+i+')">+ Set</button><button class="ghost" onclick="removeSet('+i+')">− Set</button></div>'+gsRestControl('ex-'+i):'')+'<button class="ghost" onclick="gsRemoveExercise('+i+')">REMOVE EXERCISE</button></div>';
 }
-let gsRestInterval=null;
-function gsRestControl(id){return '<div style="padding:10px 0"><strong>REST</strong> <button class="ghost" onclick="gsStartRest(this,60)">START 60s</button></div>'}
-function gsDing(){try{const C=window.AudioContext||window.webkitAudioContext,ctx=new C(),o=ctx.createOscillator(),g=ctx.createGain();o.frequency.value=880;g.gain.setValueAtTime(.12,ctx.currentTime);g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+.3);o.connect(g);g.connect(ctx.destination);o.start();o.stop(ctx.currentTime+.3);o.onended=()=>ctx.close()}catch{}}
-function gsStartRest(button,seconds){if(gsRestInterval)clearInterval(gsRestInterval);const end=Date.now()+seconds*1000;const tick=()=>{const left=Math.max(0,Math.ceil((end-Date.now())/1000));if(!left){clearInterval(gsRestInterval);gsRestInterval=null;if(button.isConnected)button.textContent='DONE · RESTART';gsDing()}else if(button.isConnected)button.textContent='REST '+left+'s · RESTART'};tick();gsRestInterval=setInterval(tick,250)}
+let gsRestInterval=null,gsRestState=null,gsRestAudio=null;
+function gsRestKey(e){
+ const d=db.draft,i=d?.exercises.indexOf(e);if(i==null||i<0)return null;
+ return e.superset&&d.exercises.filter(x=>x.superset===e.superset).length>1?'superset-'+e.superset:'ex-'+i;
+}
+function gsRestControl(id){
+ const active=gsRestState&&gsRestState.draft===db.draft&&gsRestKey(gsRestState.exercise)===id;
+ const left=active?Math.max(0,Math.ceil((gsRestState.ends-Date.now())/1000)):0;
+ const label=active?(gsRestState.complete?'DONE · RESTART':'REST '+left+'s · RESTART'):'START 60s';
+ return '<div style="padding:10px 0"><strong>REST</strong> <button class="ghost" data-rest-key="'+esc(id)+'" onclick="gsStartRest(this,60)">'+label+'</button></div>';
+}
+function gsEnableRestAudio(){
+ try{
+  const C=window.AudioContext||window.webkitAudioContext;if(!C)return null;
+  if(gsRestAudio?.state==='interrupted'){gsRestAudio.close().catch(()=>{});gsRestAudio=null;}
+  if(!gsRestAudio||gsRestAudio.state==='closed')gsRestAudio=new C();
+  // Called synchronously by a Done checkbox or Rest button gesture on iOS.
+  if(gsRestAudio.state!=='running')gsRestAudio.resume().catch(()=>{});
+  const silent=gsRestAudio.createBufferSource();silent.buffer=gsRestAudio.createBuffer(1,1,22050);silent.connect(gsRestAudio.destination);silent.start();
+  return gsRestAudio;
+ }catch{return null;}
+}
+function gsDing(){
+ const ctx=gsRestAudio;if(!ctx||ctx.state==='closed')return;
+ const play=()=>{
+  try{
+   for(const [offset,hz] of [[0,1046.5],[.28,1318.5],[.56,1046.5]]){
+    const o=ctx.createOscillator(),g=ctx.createGain(),at=ctx.currentTime+offset;
+    o.type='sine';o.frequency.value=hz;g.gain.setValueAtTime(.001,at);g.gain.exponentialRampToValueAtTime(.35,at+.015);g.gain.exponentialRampToValueAtTime(.001,at+.25);
+    o.connect(g);g.connect(ctx.destination);o.onended=()=>{o.disconnect();g.disconnect()};o.start(at);o.stop(at+.27);
+   }
+  }catch{}
+ };
+ if(ctx.state==='running')play();else ctx.resume().then(play).catch(()=>{});
+}
+function gsStopRest(){if(gsRestInterval!==null)clearInterval(gsRestInterval);gsRestInterval=null;gsRestState=null;}
+function gsRestTick(){
+ const state=gsRestState;if(!state)return;
+ const key=gsRestKey(state.exercise);
+ if(state.draft!==db.draft||!key){gsStopRest();return;}
+ const left=Math.max(0,Math.ceil((state.ends-Date.now())/1000));
+ if(!left&&!state.complete){
+  state.complete=true;if(gsRestInterval!==null)clearInterval(gsRestInterval);gsRestInterval=null;
+  gsDing();try{navigator.vibrate?.([180,80,180])}catch{}
+ }
+ // Find the current control after edits/rerenders rather than retaining a detached button.
+ for(const button of document.querySelectorAll('[data-rest-key]')){
+  const owns=button.dataset.restKey===key;
+  button.textContent=owns?(state.complete?'DONE · RESTART':'REST '+left+'s · RESTART'):'START 60s';
+ }
+}
+function gsStartExerciseRest(exercise,seconds=60){
+ const duration=Number(seconds);if(!Number.isFinite(duration)||duration<=0||!gsRestKey(exercise))return;
+ gsStopRest();gsEnableRestAudio();
+ gsRestState={draft:db.draft,exercise,ends:Date.now()+duration*1000,complete:false};
+ gsRestInterval=setInterval(gsRestTick,250);gsRestTick();
+}
+function gsStartRest(button,seconds=60){
+ const key=button?.dataset.restKey;if(!key||!db.draft)return;
+ const exercise=db.draft.exercises.find(e=>gsRestKey(e)===key);if(exercise)gsStartExerciseRest(exercise,seconds);
+}
+function gsAfterSetDone(exercise,round,wasDone){
+ if(wasDone||!exercise.sets[round]?.done||isCardioExercise(exercise.id)||timeOnlyExercise(exercise.id))return;
+ if(exercise.superset){
+  const group=db.draft.exercises.filter(e=>e.superset===exercise.superset);
+  if(group.length>1&&!group.every(e=>!e.sets[round]||e.sets[round].done))return;
+ }
+ gsStartExerciseRest(exercise);
+}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')gsRestTick()});
 function gsRemoveExercise(i){const e=db.draft?.exercises[i];if(!e)return;if(e.sets.some(s=>s.done)&&!confirm('Delete this exercise and its completed sets?'))return;db.draft.exercises.splice(i,1);save();render()}
 function gsAddGroupRound(group){
  if(!db.draft)return;
@@ -1365,7 +1429,7 @@ start=function(id){
 
 
 const gsSetFieldOriginal=setField;
-setField=function(i,j,k,v){const e=db.draft?.exercises[i];if(!e)return;const previous=e.sets.map(s=>({...s}));gsSetFieldOriginal(i,j,k,v);if(k!=='kg'&&k!=='reps')return;const value=Number(v);if(!Number.isFinite(value)||value<0)return;for(let n=j+1;n<e.sets.length;n++){const next=e.sets[n];if(!next.done&&(next[k]===previous[j][k]||next[k]===0||next[k]==null))next[k]=value}save();const card=document.getElementById('exercise-'+i);if(card){const rows=card.querySelectorAll('.setrow');for(let n=j+1;n<e.sets.length;n++){const field=rows[n+1]?.querySelectorAll('input[type="number"]')[k==='kg'?0:1];if(field&&document.activeElement!==field)field.value=e.sets[n][k]}}};
+setField=function(i,j,k,v){const e=db.draft?.exercises[i];if(!e)return;const previous=e.sets.map(s=>({...s}));gsSetFieldOriginal(i,j,k,v);if(k==='done'&&v)gsAfterSetDone(e,j,previous[j]?.done);if(k!=='kg'&&k!=='reps')return;const value=Number(v);if(!Number.isFinite(value)||value<0)return;for(let n=j+1;n<e.sets.length;n++){const next=e.sets[n];if(!next.done&&(next[k]===previous[j][k]||next[k]===0||next[k]==null))next[k]=value}save();const card=document.getElementById('exercise-'+i);if(card){const rows=card.querySelectorAll('.setrow');for(let n=j+1;n<e.sets.length;n++){const field=rows[n+1]?.querySelectorAll('input[type="number"]')[k==='kg'?0:1];if(field&&document.activeElement!==field)field.value=e.sets[n][k]}}};
 const gsHomeOriginal=home;
 home=function(){const saved=db.plans.filter(p=>!p.id.startsWith('adhoc'));return gsHomeOriginal()+(saved.length?'<div class="card"><h3>START SAVED WORKOUT</h3><select id="gs-home-saved">'+saved.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name)+'</option>').join('')+'</select><button class="btn" onclick="start(document.getElementById(\'gs-home-saved\').value)">START WORKOUT</button></div>':'')};
 

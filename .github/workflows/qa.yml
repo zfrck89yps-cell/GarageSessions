@@ -28,8 +28,12 @@ jobs:
       - name: Install browser
         run: |
           npm install --no-save playwright jsdom
-          npx playwright install --with-deps chromium
+          npx playwright install --with-deps chromium webkit
       - name: Browser smoke tests
         run: node tests/smoke.cjs
+      - name: Mobile WebKit smoke tests
+        run: GS_BROWSER=webkit node tests/smoke.cjs
+      - name: Rest timer regression tests
+        run: node tests/rest-timer.cjs
       - name: Exercise details regression and coverage audit
         run: node tests/exercise-details.cjs
