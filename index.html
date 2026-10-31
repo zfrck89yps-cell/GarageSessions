@@ -1416,6 +1416,12 @@ const gsPriorShowInfoRich=showInfo;
 showInfo=function(id){
  gsPriorShowInfoRich(id);
  const body=document.querySelector('#modalbody');if(!body)return;
+ const originalMap=body.querySelector('svg')?.parentElement?.outerHTML||'';
+ const knownMuscles=typeof coaching!=='undefined'&&coaching[id]?.muscles;
+ const group=typeof exerciseCatalog!=='undefined'?exerciseCatalog.find(e=>e[0]===id)?.[1]:null;
+ const inferred=group==='Legs'?['quads','glutes','hamstrings']:group==='Push'?['chest','shoulders','triceps']:group==='Pull'?['back','biceps']:group==='Core'?['core']:[];
+ const mapMarkup=originalMap||(typeof muscleMap==='function'&& (knownMuscles?.length||inferred.length)?muscleMap(knownMuscles?.length?knownMuscles:inferred):'');
+
  const name=names[id]||id,key=name.toLowerCase();
  let data=gsTechnique[key];
  if(!data&&/bulgarian|rear foot elevated/.test(key))data=gsTechnique['bulgarian split squat'];
@@ -1428,7 +1434,7 @@ showInfo=function(id){
  const slug=data?.slug;
  const media=slug?'<div class="grid" style="grid-template-columns:1fr 1fr;gap:8px;margin:12px 0">'+['start','peak'].map((stage,i)=>'<div><img loading="lazy" src="https://raw.githubusercontent.com/RepDB/exercise-dataset/main/images/flat/'+slug+'-'+stage+'.webp" alt="'+esc(name)+' '+(i?'finish':'start')+' position" style="width:100%;border-radius:8px;background:#eee" onerror="this.parentElement.style.display=\'none\'"><small>'+(i?'FINISH':'START')+'</small></div>').join('')+'</div><small>Exercise illustrations by <a href="https://repdb.co/" target="_blank" rel="noopener noreferrer">RepDB</a></small>':'';
  const video='<p><a class="ghost" style="display:inline-block" target="_blank" rel="noopener noreferrer" href="https://www.youtube.com/results?search_query='+encodeURIComponent(name+' exercise correct form demonstration')+'">▶ FIND VIDEO DEMONSTRATION</a></p>';
- body.innerHTML='<h2>'+esc(name)+'</h2>'+media+'<h3>HOW TO DO IT</h3>'+(steps.length?'<ol>'+steps.map(x=>'<li style="margin-bottom:9px">'+esc(x)+'</li>').join('')+'</ol>':'<p>Detailed instructions for this exercise are being added. Use a demonstration before trying an unfamiliar movement.</p>')+(tips.length?'<h3>FORM CHECK</h3><ul>'+tips.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':'')+video;
+ body.innerHTML='<h2>'+esc(name)+'</h2>'+mapMarkup+media+'<h3>HOW TO DO IT</h3>'+(steps.length?'<ol>'+steps.map(x=>'<li style="margin-bottom:9px">'+esc(x)+'</li>').join('')+'</ol>':'<p>Detailed instructions for this exercise are being added. Use a demonstration before trying an unfamiliar movement.</p>')+(tips.length?'<h3>FORM CHECK</h3><ul>'+tips.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':'')+video;
 };
 setInterval(clockTick,1000);
 
