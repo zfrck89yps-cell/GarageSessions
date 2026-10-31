@@ -1436,6 +1436,56 @@ showInfo=function(id){
  const video='<p><a class="ghost" style="display:inline-block" target="_blank" rel="noopener noreferrer" href="https://www.youtube.com/results?search_query='+encodeURIComponent(name+' exercise correct form demonstration')+'">▶ FIND VIDEO DEMONSTRATION</a></p>';
  body.innerHTML='<h2>'+esc(name)+'</h2>'+mapMarkup+media+'<h3>HOW TO DO IT</h3>'+(steps.length?'<ol>'+steps.map(x=>'<li style="margin-bottom:9px">'+esc(x)+'</li>').join('')+'</ol>':'<p>Detailed instructions for this exercise are being added. Use a demonstration before trying an unfamiliar movement.</p>')+(tips.length?'<h3>FORM CHECK</h3><ul>'+tips.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':'')+video;
 };
+
+/* Consolidated exercise details: maps, photographs, instructions, tips and video. */
+const gsDetailSteps={
+press:['Lie on the floor with knees bent and feet flat; position dumbbells above your chest.','Lower elbows towards the floor at roughly 45 degrees to your body.','When upper arms touch the floor gently, press the weights back up.'],
+rdl:['Stand with dumbbells in front of thighs and knees slightly bent.','Push hips backwards, keeping the weights close to your legs.','Stand by extending hips, without leaning backwards.'],
+push:['Place hands on a stable raised surface and step back into a straight-body position.','Lower chest towards hands with elbows angled backwards.','Push back up without sagging at the hips.'],
+inclinecurl:['Sit on a locked incline bench with arms hanging towards the floor.','Curl dumbbells without swinging shoulders or torso.','Lower slowly to a comfortable straight-arm position.'],
+lateralraise:['Hold light dumbbells at your sides with a slight elbow bend.','Raise arms outwards to about shoulder height without shrugging.','Lower slowly rather than letting the weights drop.'],
+overheadpress:['Sit on a locked upright bench with feet firmly planted.','Start dumbbells near shoulders with wrists above elbows.','Press overhead without arching your back, then lower slowly.'],
+hammer:['Stand tall with palms facing each other and elbows by your sides.','Curl dumbbells without swinging your upper arms.','Lower slowly while keeping wrists neutral.'],
+tricep:['Hold one dumbbell securely overhead with both hands.','Bend elbows to lower it behind your head, keeping upper arms still.','Straighten elbows without arching your back.'],
+splitstance:['Take a staggered stance and hold a stable support.','Lower slowly by bending both knees through a comfortable range.','Push through the front foot to stand without twisting.'],
+calfraise:['Stand with feet hip-width apart and hold a secure support.','Rise onto the balls of your feet and pause.','Lower heels slowly without bouncing.'],
+plank:['Place forearms on the floor with elbows under shoulders.','Extend legs and brace your abdomen in a straight-body position.','Breathe normally without letting hips sag.'],
+bird:['Start on hands and knees with hips and shoulders square.','Extend opposite arm and leg without twisting your torso.','Return slowly and switch sides.'],
+hipthrust:['Rest upper back against a stable bench with feet flat.','Secure a padded dumbbell across your hips with both hands.','Lift hips by pressing through feet; pause and lower slowly.']
+};
+const gsGenericSteps=function(name){
+ const n=name.toLowerCase();
+ if(/bulgarian|lunge|split squat/.test(n))return ['Set up in a stable staggered stance with your front foot flat.','Lower by bending both knees, keeping hips facing forwards.','Push through the front foot to rise without twisting.'];
+ if(/squat|leg press/.test(n))return ['Place feet firmly and brace your abdomen.','Bend hips and knees together, tracking knees in line with toes.','Push through feet to return without bouncing.'];
+ if(/deadlift|rdl|good morning/.test(n))return ['Brace your trunk with feet firmly planted.','Hinge at hips with a neutral back and the load close to your body.','Extend hips to stand tall without leaning backwards.'];
+ if(/row|pulldown|pull-up|chin-up/.test(n))return ['Secure your grip and set a stable body position.','Pull through elbows without jerking or swinging your torso.','Return slowly through a comfortable range.'];
+ if(/press|push-up|dip/.test(n))return ['Set a stable body or bench position and align wrists comfortably.','Lower the load or body under control without bouncing.','Press smoothly without excessive back arching.'];
+ if(/curl|extension|pushdown|skull crusher/.test(n))return ['Set a stable position and keep upper arms controlled.','Bend or straighten elbows smoothly without swinging.','Return slowly through a comfortable range.'];
+ if(/raise|fly|shrug/.test(n))return ['Set a stable position with a manageable weight.','Move through the shoulder movement without jerking or shrugging unnecessarily.','Return slowly, avoiding painful range.'];
+ if(/plank|crunch|knee raise|leg raise|twist|rollout/.test(n))return ['Brace your abdomen in a stable starting position.','Move slowly without using momentum or swinging.','Keep your lower back controlled and shorten range if needed.'];
+ if(/hip thrust|glute|abductor|adductor/.test(n))return ['Set feet and equipment securely.','Move at the hips slowly, keeping your pelvis stable.','Pause briefly and return without bouncing.'];
+ if(/calf|tibialis/.test(n))return ['Support your feet and hold a stable position.','Move at the ankles slowly through a comfortable range.','Pause and return without bouncing.'];
+ if(/leg curl|leg extension/.test(n))return ['Adjust machine pads and seat to align with your knee joint.','Move your lower legs smoothly without jerking.','Return slowly without slamming the stack.'];
+ return ['Set up with stable equipment and a manageable load.','Move slowly through a comfortable range without swinging.','Stop if you cannot maintain controlled, pain-free technique.'];
+};
+const gsInfoBeforeConsolidation=showInfo;
+showInfo=function(id){
+ gsInfoBeforeConsolidation(id);
+ const body=document.querySelector('#modalbody');if(!body)return;
+ const name=names[id]||id,entry=importedById[id],coach=coaching[id];
+ const primary=entry?.main||coach?.muscles||extraExercises[id]?.[3]||[];
+ const secondary=entry?.secondary||[];
+ const map=typeof detailedMuscleMap==='function'?detailedMuscleMap(primary,secondary):'';
+ const normalized=x=>String(x).toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+ const photoEntry=entry?.folder&&entry.imageCount?entry:importedExercises.find(e=>e.folder&&e.imageCount&&normalized(e.name)===normalized(name));
+ const photos=photoEntry?'<div class="grid" style="grid-template-columns:1fr 1fr;gap:8px;margin:12px 0">'+Array.from({length:Math.min(2,photoEntry.imageCount)},(_,i)=>'<div><img loading="lazy" src="'+exercisePhoto(photoEntry,i)+'" alt="'+esc(name)+' position '+(i+1)+'" style="width:100%;border-radius:8px" onerror="this.style.display=\'none\'"><small>POSITION '+(i+1)+'</small></div>').join('')+'</div>':'';
+ const raw=entry?.instructions&&!entry.instructions.startsWith('Use controlled form, a manageable load')?entry.instructions.split(/\\n+/).filter(Boolean):[];
+ const custom=gsTechnique[name.toLowerCase()];
+ const steps=gsDetailSteps[id]||custom?.steps||coach?.steps||(raw.length>=3?raw:gsGenericSteps(name));
+ const tips=custom?.tips?.join(' ')||coach?.cues?.join(' ')||extraExercises[id]?.[2]||info[id]?.[1]||'Use a manageable load, stable equipment and a comfortable range. Stop if a joint hurts.';
+ const video='<p><a class="ghost" target="_blank" rel="noopener noreferrer" href="https://www.youtube.com/results?search_query='+encodeURIComponent(name+' exercise correct form demonstration')+'">▶ FIND VIDEO DEMONSTRATION</a></p>';
+ body.innerHTML='<h2>'+esc(name)+'</h2>'+map+photos+(photos?'<small>Exercise photography: Free Exercise DB (public domain).</small>':'<p class="muted">No verified demonstration photographs available yet; see video search below.</p>')+'<h3>STEP-BY-STEP</h3><ol>'+steps.map(x=>'<li style="margin-bottom:8px">'+esc(x)+'</li>').join('')+'</ol>'+(raw.length>0&&raw.length<3?'<h3>ADDITIONAL NOTES</h3><p>'+esc(raw.join(' '))+'</p>':'')+'<h3>FORM & SAFETY</h3><p>'+esc(tips)+'</p>'+(coach?.avoid?.length?'<h3>COMMON MISTAKES</h3><ul>'+coach.avoid.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':'')+video;
+};
 setInterval(clockTick,1000);
 
 render();if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
