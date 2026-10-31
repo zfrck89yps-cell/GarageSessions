@@ -502,7 +502,7 @@ names[yogaId]='Yoga';
 cardioIds.add(yogaId);
 exerciseCatalog.push([yogaId,'Mind & Body','Mat / no equipment']);
 function ownExercises(){if(!db.customExercises)db.customExercises=[];return db.customExercises}
-function syncOwnExercises(){for(let i=exerciseCatalog.length-1;i>=0;i--)if(exerciseCatalog[i][0].startsWith('own-'))exerciseCatalog.splice(i,1);for(const id of Object.keys(names))if(id.startsWith('own-')){delete names[id];delete info[id];cardioIds.delete(id)}for(const e of ownExercises()){names[e.id]=e.name;info[e.id]=[e.instructions||'Your own exercise.',e.tips||''];exerciseCatalog.push([e.id,e.category||'Custom',e.equipment||'Personal']);if(e.tracking==='time')cardioIds.add(e.id)}}
+function syncOwnExercises(){for(let i=exerciseCatalog.length-1;i>=0;i--)if(exerciseCatalog[i][0].startsWith('own-'))exerciseCatalog.splice(i,1);for(const id of Object.keys(names))if(id.startsWith('own-')){delete names[id];delete info[id];cardioIds.delete(id)}for(const e of ownExercises()){names[e.id]=e.name;info[e.id]=[e.instructions||'Your own exercise.',e.tips||''];exerciseCatalog.push([e.id,e.category||'Custom',e.equipment||'Personal']);if(e.tracking==='time'||e.tracking==='cardio')cardioIds.add(e.id)}}
 syncOwnExercises();
 const oldSwitchOwn=switchProfile;
 switchProfile=function(id){oldSwitchOwn(id);syncOwnExercises();render()};
