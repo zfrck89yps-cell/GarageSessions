@@ -33,6 +33,8 @@ jobs:
         run: node tests/smoke.cjs
       - name: Mobile WebKit smoke tests
         run: GS_BROWSER=webkit node tests/smoke.cjs
+      - name: Cardio guide regression tests
+        run: node tests/cardio-guide.cjs
       - name: Rest timer regression tests
         run: node tests/rest-timer.cjs
       - name: Exercise details regression and coverage audit

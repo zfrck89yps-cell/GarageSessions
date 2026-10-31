@@ -57,6 +57,23 @@ const server=http.createServer((req,res)=>{const pathname=decodeURIComponent(req
   await page.reload();await page.waitForFunction(()=>typeof resolveExerciseDetails==='function');
   assert.equal(await page.evaluate(()=>db.sessions.length),1);
   assert.equal(await page.evaluate(()=>db.body.at(-1).kg),105.9);
+  await page.evaluate(()=>{db.draft=null;db.plans.push({id:'guided-smoke',name:'Guided cardio',type:'cardio',ex:[['bike',10,20]]});start('guided-smoke')});
+  await page.getByRole('button',{name:'PLAN GUIDE',exact:true}).click();
+  await page.getByRole('button',{name:'+ ADD BLOCK / STAGE',exact:true}).click();
+  await page.getByLabel('Stage name',{exact:true}).fill('Warm up');
+  await page.getByLabel('Duration in seconds',{exact:true}).fill('1');
+  await page.getByLabel('Minimum RPM',{exact:true}).fill('60');
+  await page.getByLabel('Maximum RPM',{exact:true}).fill('80');
+  await page.getByRole('button',{name:'+ Stage in block',exact:true}).click();
+  await page.getByLabel('Stage name',{exact:true}).nth(1).fill('Finish');
+  await page.getByLabel('Duration in seconds',{exact:true}).nth(1).fill('1');
+  await page.getByRole('button',{name:'SAVE GUIDE',exact:true}).click();
+  await page.getByRole('button',{name:'GO',exact:true}).click();
+  await page.locator('#cg-player').getByRole('heading',{name:'Warm up',exact:true}).waitFor();
+  assert.equal(await page.locator('#cg-player').evaluate(e=>e.scrollWidth<=e.clientWidth+1),true,'Cardio guide overflows phone');
+  await page.waitForFunction(()=>db.draft.cardioRun.complete);
+  assert.equal(await page.evaluate(()=>db.draft.exercises[0].sets[0].done),true);
+  await page.getByRole('button',{name:'BACK TO WORKOUT',exact:true}).click();
   assert.equal(errors.length,0,errors.join('\n'));
   console.log('PASS: '+browserType.name()+' 393x852 touch, Done auto-rest, gesture-unlocked real audio completion, exercise details, workout completion and persistence');
  }finally{await browser.close();server.close()}
