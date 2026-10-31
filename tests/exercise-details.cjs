@@ -16,6 +16,20 @@ assert.deepEqual(Array.from(evaluate(`detailLines('first\\nsecond\\\\nthird')`))
 const baseline=before(),rows=[];
 for(const id of evaluate('Object.keys(names)')){
  const d=evaluate(`resolveExerciseDetails(${JSON.stringify(id)})`);
+ const base=evaluate(`resolveBaseExerciseDetails(${JSON.stringify(id)})`);
+ // Fill-only means existing text and images win byte-for-byte, not merely that
+ // their replacements happen to contain similar words.
+ for(const key of Object.keys(base)){
+  const value=base[key];
+  if(Array.isArray(value)&&value.length||typeof value==='string'&&value||typeof value==='boolean'){
+   assert.equal(JSON.stringify(d[key]),JSON.stringify(value),id+' overwrote '+key);
+  }
+ }
+ assert.equal(JSON.stringify(d.tips),JSON.stringify(base.tips),id+' modified tips');
+ assert.ok(d.steps.length,id+' missing written instructions');
+ assert.ok(d.form.length,id+' missing form guidance');
+ assert.ok(d.images.length,id+' missing demonstration pictures');
+ if(d.addedSources)assert.ok(d.addedSources.every(s=>s.url.startsWith('https://')),id+' invalid source');
  w.showInfo(id);
  const body=w.document.querySelector('#modalbody');
  assert.equal(body.querySelectorAll('h2').length,1,id+' duplicate rendering');
@@ -49,5 +63,5 @@ assert.equal(w.document.querySelector('#modalbody').textContent.includes('My tip
 // Exercise resolution also tolerates saved IDs missing from the catalogue.
 w.showInfo('unknown-saved-id');assert.ok(w.document.querySelector('#modalbody').textContent.includes('have not been added'));
 if(process.env.AUDIT_OUTPUT)fs.writeFileSync(process.env.AUDIT_OUTPUT,JSON.stringify(rows,null,2));
-console.log('PASS: '+rows.length+' detail screens, newline parsing, maps, aliases, image errors, cardio, coaching, video links and storage preservation.');
+console.log('PASS: '+rows.length+' detail screens, complete instructions/form/images, fill-only preservation, unchanged tips, newline parsing, maps, aliases, image errors, cardio, coaching, video links and storage preservation.');
 dom.window.close();

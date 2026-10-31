@@ -22,6 +22,7 @@ jobs:
           if(!match)throw Error('App script missing');
           new vm.Script(match[1]);
           new vm.Script(fs.readFileSync('exercise-details.js','utf8'));
+          new vm.Script(fs.readFileSync('exercise-additions.js','utf8'));
           console.log('PASS: JavaScript syntax');
           NODE
       - name: Install browser

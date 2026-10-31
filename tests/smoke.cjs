@@ -1,6 +1,6 @@
 const {chromium}=require('playwright');
 const fs=require('fs'),http=require('http'),path=require('path'),assert=require('node:assert/strict');
-const server=http.createServer((req,res)=>{const pathname=decodeURIComponent(req.url.split('?')[0]);const p=path.resolve(process.cwd(),'.'+(pathname==='/'?'/index.html':pathname));if(!p.startsWith(process.cwd()+path.sep)){res.writeHead(403);return res.end()}fs.readFile(p,(err,data)=>{if(err){res.writeHead(404);return res.end()}res.setHeader('Content-Type',p.endsWith('.js')?'application/javascript':p.endsWith('.webmanifest')?'application/manifest+json':'text/html');res.end(data)})});
+const server=http.createServer((req,res)=>{const pathname=decodeURIComponent(req.url.split('?')[0]);const p=path.resolve(process.cwd(),'.'+(pathname==='/'?'/index.html':pathname));if(!p.startsWith(process.cwd()+path.sep)){res.writeHead(403);return res.end()}fs.readFile(p,(err,data)=>{if(err){res.writeHead(404);return res.end()}res.setHeader('Content-Type',p.endsWith('.js')?'application/javascript':p.endsWith('.svg')?'image/svg+xml':p.endsWith('.webmanifest')?'application/manifest+json':'text/html');res.end(data)})});
 (async()=>{
  await new Promise(r=>server.listen(0,r));
  const browser=await chromium.launch({headless:true});
@@ -19,6 +19,15 @@ const server=http.createServer((req,res)=>{const pathname=decodeURIComponent(req
   await page.getByRole('heading',{name:'Form guidance',exact:true}).waitFor();
   assert.ok(await page.locator('#modalbody svg').count());
   assert.equal(await page.locator('#modalbody').evaluate(e=>e.scrollWidth<=e.clientWidth+1),true,'Details overflow mobile width');
+  await page.getByRole('button',{name:'Close',exact:true}).click();
+  await page.evaluate(()=>showInfo('bike'));
+  await page.waitForFunction(()=>Array.from(document.querySelectorAll('#modalbody img')).every(i=>i.complete&&i.naturalWidth>0));
+  assert.equal(await page.locator('#modalbody').evaluate(e=>e.scrollWidth<=e.clientWidth+1),true,'Added illustrations overflow mobile width');
+  await page.getByText('Sources for added content',{exact:true}).waitFor();
+  await page.getByRole('button',{name:'Close',exact:true}).click();
+  await page.evaluate(()=>showInfo('staple35'));
+  assert.equal(await page.locator('#modalbody h3').filter({hasText:'How to perform'}).count(),1);
+  assert.ok(await page.locator('#modalbody ol li').count()>=3,'Added neck instructions missing');
   await page.getByRole('button',{name:'Close',exact:true}).click();
   await page.locator('input[type=checkbox]').first().check();
   await page.getByRole('button',{name:'END & SAVE',exact:true}).click();

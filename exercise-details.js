@@ -62,7 +62,7 @@ extraExercises.calfraise[3]=['calves'];
 const detailNormalize=x=>String(x||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
 const detailLines=x=>(Array.isArray(x)?x:String(x||'').split(/\r?\n|\\n/)).map(s=>String(s).trim()).filter(Boolean);
 const detailUnique=x=>[...new Set(x.filter(Boolean))];
-function resolveExerciseDetails(id){
+function resolveBaseExerciseDetails(id){
  const own=ownExercises().find(e=>e.id===id),name=own?.name||names[id]||id;
  const entry=importedById[id],coach=coaching[id],extra=extraExercises[id],custom=gsTechnique[name.toLowerCase()];
  const target=detailAliases[name]||name;
@@ -86,6 +86,20 @@ function resolveExerciseDetails(id){
  const images=photo?Array.from({length:Math.min(2,photo.imageCount)},(_,i)=>({url:exercisePhoto(photo,i),alt:name+' demonstration position '+(i+1)})):[];
  return {id,name,steps,form,tips,main,secondary,images,isCardio,isYoga,sourceName:photo?.name||'',mistakes:coach?.avoid||[],breath:coach?.breath||'',tempo:coach?.tempo||'',equipment:own?.equipment||entry?.equipment||source?.equipment||exerciseCatalog.find(e=>e[0]===id)?.[2]||'',explanation:own?.description||'',muscleNote:isCardio?'Indicative muscle groups; effort depends on speed, resistance and technique.':''};
 }
+function resolveExerciseDetails(id){
+ const base=resolveBaseExerciseDetails(id);
+ const addition=typeof EXERCISE_ADDITIONS==='object'?EXERCISE_ADDITIONS[id]:null;
+ if(!addition||ownExercises().some(e=>e.id===id))return base;
+ const result={...base},addedSources=[];
+ // Only empty fields may be supplemented. Tips are deliberately excluded.
+ for(const key of ['steps','form','images']){
+  if(base[key].length||!Array.isArray(addition[key])||!addition[key].length)continue;
+  result[key]=addition[key];
+  for(const source of addition.sources?.[key]||[])addedSources.push({...source,field:key});
+ }
+ if(addedSources.length)result.addedSources=addedSources;
+ return result;
+}
 function exerciseDetailImageFailed(picture){
  const box=picture.closest('figure');if(!box)return;
  const message=document.createElement('p');message.className='muted';message.setAttribute('role','status');
@@ -99,9 +113,13 @@ function showInfo(id){
  const mapped=d.main.flatMap(m=>anatomyKeys[m]||[m]).filter(m=>supported.has(m));
  const labels=values=>values.map(m=>anatomyNames[m]||muscleLabels[m]||m.replace(/_/g,' ')).join(', ');
  const map=mapped.length?detailedMuscleMap(d.main,d.secondary)+'<p><b>Main:</b> '+esc(labels(d.main))+(d.secondary.length?'<br><b>Supporting:</b> '+esc(labels(d.secondary)):'')+'</p>':'<p class="muted">'+(d.isYoga?'Muscle maps belong to individual yoga poses; no single map describes a whole practice.':'Muscle information has not been added for this exercise.')+'</p>';
- const images=d.images.length?'<div class="grid" style="grid-template-columns:1fr 1fr;gap:8px">'+d.images.map((p,i)=>'<figure style="margin:0"><img loading="lazy" src="'+esc(p.url)+'" alt="'+esc(p.alt)+'" onerror="exerciseDetailImageFailed(this)" style="width:100%;border-radius:8px"><figcaption>Position '+(i+1)+'</figcaption></figure>').join('')+'</div><small>Photography: Free Exercise DB (public domain).</small>':'<p class="muted">No verified demonstration pictures have been added for this exercise.</p>';
+ const columns=d.images.length===1||d.images.some(p=>p.kind==='diagram')?'1fr':'1fr 1fr';
+ const images=d.images.length?'<div class="grid" style="grid-template-columns:'+columns+';gap:8px">'+d.images.map((p,i)=>'<figure style="margin:0"><img loading="lazy" src="'+esc(p.url)+'" alt="'+esc(p.alt)+'" onerror="exerciseDetailImageFailed(this)" style="width:100%;border-radius:8px"><figcaption>'+esc(p.caption||'Position '+(i+1))+'</figcaption>'+(p.credit?'<small>'+esc(p.credit)+'</small>':'')+'</figure>').join('')+'</div>'+(!d.images.some(p=>p.credit)?'<small>Photography: Free Exercise DB (public domain).</small>':''):'<p class="muted">No verified demonstration pictures have been added for this exercise.</p>';
  body.innerHTML='<h2>'+esc(d.name)+'</h2>'+map+(d.muscleNote?'<p class="muted">'+esc(d.muscleNote)+'</p>':'')+images+(d.equipment?'<p><b>Equipment:</b> '+esc(d.equipment)+'</p>':'')+(d.explanation?'<p>'+esc(d.explanation)+'</p>':'')+guideSection('How to perform',d.steps)+section('Form guidance',d.form)+section('Tips',d.tips)+(d.mistakes.length?section('Common mistakes',d.mistakes):'')+(d.breath?'<h3>Breathing</h3><p>'+esc(d.breath)+'</p>':'')+(d.tempo?'<h3>Tempo</h3><p>'+esc(d.tempo)+'</p>':'')+(d.isCardio?'<h3>What to record</h3><p>Duration in minutes; distance and resistance where applicable.</p>':'')+'<p><a class="ghost" target="_blank" rel="noopener noreferrer" href="https://www.youtube.com/results?search_query='+encodeURIComponent(d.name+' exercise correct form demonstration')+'">▶ FIND VIDEO DEMONSTRATION</a></p>';
  if(!d.steps.length)body.querySelector('ol').outerHTML='<p class="muted">Exercise-specific instructions have not been added yet.</p>';
+ if(d.addedSources?.length){
+  const sources=document.createElement('details');sources.innerHTML='<summary>Sources for added content</summary><ul>'+d.addedSources.map(s=>'<li><a target="_blank" rel="noopener noreferrer" href="'+esc(s.url)+'">'+esc(s.title)+'</a>'+(s.note?'<br><small>'+esc(s.note)+'</small>':'')+'</li>').join('')+'</ul>';body.appendChild(sources);
+ }
  for(const prop of ['top','bottom','left','right','margin','margin-top','margin-bottom','transform','width','max-height'])modal.style.removeProperty(prop);
  if(!modal.open)modal.showModal();modal.scrollTop=0;body.scrollTop=0;document.activeElement?.blur?.();
  requestAnimationFrame(()=>{modal.scrollTop=0;});
