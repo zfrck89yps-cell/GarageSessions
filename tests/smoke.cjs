@@ -82,9 +82,9 @@ const server=http.createServer((req,res)=>{const pathname=decodeURIComponent(req
   assert.ok(aiText.includes('garage-sessions-plan-v1')&&aiText.includes('COMPLETE AVAILABLE EXERCISE CATALOGUE'));
   assert.equal(await page.locator('.gs-ai-template').evaluate(e=>e.scrollWidth<=e.clientWidth+1),true,'AI template overflows mobile width');
   const downloadPromise=page.waitForEvent('download');
-  await page.getByRole('button',{name:'DOWNLOAD TEMPLATE',exact:true}).click();
+  await page.getByRole('button',{name:'DOWNLOAD AI GARAGE SESSION PLANNER',exact:true}).click();
   const download=await downloadPromise;
-  assert.equal(download.suggestedFilename(),'garage-sessions-ai-workout-template.txt');
+  assert.equal(download.suggestedFilename(),'AI-Garage-Session-Planner.txt');
   assert.equal(fs.readFileSync(await download.path(),'utf8'),aiText);
   assert.equal(errors.length,0,errors.join('\n'));
   console.log('PASS: '+browserType.name()+' 393x852 touch, Done auto-rest, gesture-unlocked real audio completion, exercise details, workout completion and persistence');
