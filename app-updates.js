@@ -1,5 +1,5 @@
 /* Updates replace app assets only. The training database keeps its existing key. */
-const GS_BUILD='2026-11-01.1';
+const GS_BUILD='2026-11-01.2';
 let gsUpdateRegistration=null,gsUpdateChecking=false,gsUpdateMessage='',gsUpdateLastCheck=0,gsUpdateRequested=false,gsUpdateReloading=false,gsUpdateControllerChanged=false;
 const gsUpdateHadController=!!navigator.serviceWorker?.controller;
 function gsUpdateBusy(){return !!builder||!!document.querySelector('#modal')?.open||!!(db.draft&&draftHasProgress(db.draft))||!!(typeof cgRun==='function'&&cgRun()&&!cgRun().complete)||tab==='picker'}
@@ -18,6 +18,7 @@ function gsUpdatePaint(){
 }
 function gsWatchUpdate(worker){if(!worker)return;worker.addEventListener('statechange',()=>{if(worker.state==='installed'){gsUpdateMessage=gsUpdateRegistration?.waiting?'Update downloaded and ready.':'App is ready for offline use.';gsUpdatePaint()}else if(worker.state==='redundant'){gsUpdateMessage='The update could not be downloaded. Your current version is still available.';gsUpdatePaint()}})}
 async function gsCheckForUpdates(manual=false){
+ if(navigator.onLine===false){gsUpdateMessage='You’re offline. Updates will be checked when you reconnect.';gsUpdatePaint();return}
  if(gsUpdateChecking)return;
  if(!('serviceWorker' in navigator)){gsUpdateMessage='Updates are not supported in this browser.';gsUpdatePaint();return}
  if(!manual&&Date.now()-gsUpdateLastCheck<60000)return;
@@ -30,7 +31,7 @@ async function gsCheckForUpdates(manual=false){
   if(worker){gsUpdateMessage='Downloading update…';gsUpdatePaint();await new Promise((resolve,reject)=>{let timer;const changed=()=>{if(worker.state==='installed'||worker.state==='activated'){clearTimeout(timer);worker.removeEventListener('statechange',changed);resolve()}else if(worker.state==='redundant'){clearTimeout(timer);worker.removeEventListener('statechange',changed);reject(Error('Download failed'))}};timer=setTimeout(()=>{worker.removeEventListener('statechange',changed);reject(Error('Download timed out'))},30000);worker.addEventListener('statechange',changed);changed()})}
   gsUpdateMessage=gsUpdateReady()?'Update downloaded and ready.':'You’re up to date.';
  }catch{gsUpdateMessage=navigator.onLine===false?'You’re offline. Updates will be checked when you reconnect.':'Could not check for updates. Try again when you have a connection.'}
- finally{gsUpdateChecking=false;gsUpdatePaint()}
+ finally{gsUpdateChecking=false;if(navigator.onLine===false)gsUpdateMessage='You’re offline. Updates will be checked when you reconnect.';gsUpdatePaint()}
 }
 function gsSaveBeforeUpdate(){save();if(localStorage.getItem(KEY)!==JSON.stringify(db))throw Error('Save could not be verified')}
 function gsReloadForUpdate(){if(gsUpdateReloading||gsUpdateBusy())return;try{gsSaveBeforeUpdate()}catch{gsUpdateRequested=false;gsUpdateMessage='Could not save your latest changes. Update postponed; export a backup from More.';gsUpdatePaint();return}gsUpdateReloading=true;window.location.reload()}

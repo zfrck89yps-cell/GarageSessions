@@ -14,13 +14,14 @@ const saved=ev('localStorage.getItem(KEY)');assert.equal(saved,ev('JSON.stringif
 ev(`gsUpdateControllerChanged=false;gsUpdateRequested=false;save=()=>{throw Error('quota')}`);ev('gsApplyUpdate()');assert.equal(posts,1);assert.match(ev('gsUpdateMessage'),/Could not save/);assert.equal(ev('localStorage.getItem(KEY)'),saved);
 reg.waiting=null;ev('gsUpdateControllerChanged=false');await ev('gsCheckForUpdates(true)');assert.match(ev('gsUpdateMessage'),/up to date/);reg.update=async()=>{throw Error('offline')};Object.defineProperty(w.navigator,'onLine',{value:false});await ev('gsCheckForUpdates(true)');assert.match(ev('gsUpdateMessage'),/offline/);assert.equal(ev('localStorage.getItem(KEY)'),saved);dom.window.close();
 // Exercise the actual service-worker handlers against a controlled Cache API.
+const releaseCache=fs.readFileSync('sw.js','utf8').match(/const CACHE='([^']+)'/)[1];
 const events={},scope='https://garage.test/',stores=new Map(),deleted=[],requests=[];let fail=false,skip=0,claims=0,net=0;
 const cache={async addAll(reqs){requests.push(...reqs);if(fail)throw Error('network');reqs.forEach(r=>stores.set(r.url,{version:'new'}))},async match(key){return stores.get(typeof key==='string'?key:key.url)}};
 const worker={registration:{scope},location:{origin:'https://garage.test'},addEventListener(name,fn){events[name]=fn},skipWaiting:async()=>skip++,clients:{claim:async()=>claims++}};
-const c={self:worker,URL,Request,caches:{open:async()=>cache,delete:async key=>deleted.push(key),keys:async()=>['garage-sessions-v8','garage-sessions-v9','unrelated-cache']},fetch:async()=>{net++;return {version:'network'}}};vm.createContext(c);vm.runInContext(fs.readFileSync('sw.js','utf8'),c);
+const c={self:worker,URL,Request,caches:{open:async()=>cache,delete:async key=>deleted.push(key),keys:async()=>['garage-sessions-test-old',releaseCache,'unrelated-cache']},fetch:async()=>{net++;return {version:'network'}}};vm.createContext(c);vm.runInContext(fs.readFileSync('sw.js','utf8'),c);
 let task;events.install({waitUntil(p){task=p}});await task;assert.ok(requests.every(r=>r.cache==='reload'));assert.ok(stores.has(scope+'app-updates.js'));
-events.message({data:{type:'GS_SKIP_WAITING'},waitUntil(p){task=p}});await task;assert.equal(skip,1);events.activate({waitUntil(p){task=p}});await task;assert.deepEqual(deleted,['garage-sessions-v8']);assert.equal(claims,1);
+events.message({data:{type:'GS_SKIP_WAITING'},waitUntil(p){task=p}});await task;assert.equal(skip,1);events.activate({waitUntil(p){task=p}});await task;assert.deepEqual(deleted,['garage-sessions-test-old']);assert.equal(claims,1);
 let response;events.fetch({request:new Request(scope+'index.html?test=1'),respondWith(p){response=p}});assert.equal((await response).version,'new');assert.equal(net,0,'Core files use the installed complete bundle');events.fetch({request:new Request('https://other.test/image.png'),respondWith(){throw Error('Should not intercept external assets')}});
-fail=true;events.install({waitUntil(p){task=p}});await assert.rejects(task,/network/);assert.equal(deleted.at(-1),'garage-sessions-v9','Remove failed partial release only');
+fail=true;events.install({waitUntil(p){task=p}});await assert.rejects(task,/network/);assert.equal(deleted.at(-1),releaseCache,'Remove failed partial release only');
 console.log('PASS: update checks, waiting-worker activation, safe reload, active-session/editor guards, save failures, offline handling, unchanged database, atomic precache and scoped cache cleanup');
 })().catch(e=>{console.error(e);process.exitCode=1});
