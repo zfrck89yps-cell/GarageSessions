@@ -77,6 +77,7 @@ const server=http.createServer((req,res)=>{const pathname=decodeURIComponent(req
   await page.evaluate(()=>{tab='settings';render()});
   await page.getByRole('heading',{name:'CREATE A PLAN WITH AI',exact:true}).waitFor();
   await page.getByText('View template and full exercise list',{exact:true}).click();
+  await page.waitForFunction(()=>document.querySelector('#gs-ai-template-text')?.value.includes('COMPLETE AVAILABLE EXERCISE CATALOGUE'));
   const aiText=await page.getByLabel('AI workout import template',{exact:true}).inputValue();
   assert.ok(aiText.includes('garage-sessions-plan-v1')&&aiText.includes('COMPLETE AVAILABLE EXERCISE CATALOGUE'));
   assert.equal(await page.locator('.gs-ai-template').evaluate(e=>e.scrollWidth<=e.clientWidth+1),true,'AI template overflows mobile width');
