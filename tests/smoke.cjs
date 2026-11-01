@@ -21,6 +21,18 @@ const server=http.createServer((req,res)=>{const pathname=decodeURIComponent(req
   // Seed a clean fixture: a fresh installation intentionally has no saved plans.
   await page.evaluate(()=>{db.plans.push({id:'smoke-test',name:'Smoke test',type:'strength',ex:[['squat',8,12],['flatpress',8,12],['row',8,12]]});save();render()});
   await page.getByRole('button',{name:'START WORKOUT',exact:true}).click();
+  await page.getByRole('button',{name:'SETS & REST',exact:true}).click();
+  await page.getByLabel('Sets per exercise',{exact:true}).selectOption('3');
+  await page.getByLabel('Rest timer',{exact:true}).selectOption('90');
+  assert.equal(await page.getByLabel('Apply to all future workouts',{exact:true}).isChecked(),false);
+  assert.equal(await page.locator('#modal').evaluate(e=>e.scrollWidth<=e.clientWidth+1),true,'Sets/rest modal overflows mobile width');
+  await page.getByRole('button',{name:'APPLY SETTINGS',exact:true}).click();
+  assert.equal(await page.evaluate(()=>db.draft.exercises[0].sets.length),3);
+  assert.equal(await page.locator('[data-rest-key="ex-0"]').textContent(),'START 90s');
+  await page.getByRole('button',{name:'SETS & REST',exact:true}).click();
+  await page.getByLabel('Sets per exercise',{exact:true}).selectOption('2');
+  await page.getByLabel('Rest timer',{exact:true}).selectOption('60');
+  await page.getByRole('button',{name:'APPLY SETTINGS',exact:true}).click();
   await page.getByRole('button',{name:'START SESSION',exact:true}).click();
   await page.getByRole('button',{name:'Exercise instructions'}).first().click();
   await page.getByRole('heading',{name:'How to perform',exact:true}).waitFor();
