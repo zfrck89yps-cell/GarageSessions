@@ -37,6 +37,8 @@ jobs:
         run: |
           node tests/update-browser.cjs
           GS_BROWSER=webkit node tests/update-browser.cjs
+      - name: AI import template regression tests
+        run: node tests/ai-plan-template.cjs
       - name: Update safety regression tests
         run: node tests/app-updates.cjs
       - name: Cardio guide regression tests

@@ -74,6 +74,17 @@ const server=http.createServer((req,res)=>{const pathname=decodeURIComponent(req
   await page.waitForFunction(()=>db.draft.cardioRun.complete);
   assert.equal(await page.evaluate(()=>db.draft.exercises[0].sets[0].done),true);
   await page.getByRole('button',{name:'BACK TO WORKOUT',exact:true}).click();
+  await page.evaluate(()=>{tab='settings';render()});
+  await page.getByRole('heading',{name:'CREATE A PLAN WITH AI',exact:true}).waitFor();
+  await page.getByText('View template and full exercise list',{exact:true}).click();
+  const aiText=await page.getByLabel('AI workout import template',{exact:true}).inputValue();
+  assert.ok(aiText.includes('garage-sessions-plan-v1')&&aiText.includes('COMPLETE AVAILABLE EXERCISE CATALOGUE'));
+  assert.equal(await page.locator('.gs-ai-template').evaluate(e=>e.scrollWidth<=e.clientWidth+1),true,'AI template overflows mobile width');
+  const downloadPromise=page.waitForEvent('download');
+  await page.getByRole('button',{name:'DOWNLOAD TEMPLATE',exact:true}).click();
+  const download=await downloadPromise;
+  assert.equal(download.suggestedFilename(),'garage-sessions-ai-workout-template.txt');
+  assert.equal(fs.readFileSync(await download.path(),'utf8'),aiText);
   assert.equal(errors.length,0,errors.join('\n'));
   console.log('PASS: '+browserType.name()+' 393x852 touch, Done auto-rest, gesture-unlocked real audio completion, exercise details, workout completion and persistence');
  }finally{await browser.close();server.close()}
