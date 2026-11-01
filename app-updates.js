@@ -1,5 +1,5 @@
 /* Updates replace app assets only. The training database keeps its existing key. */
-const GS_BUILD='2026-11-01.5';
+const GS_BUILD='2026-11-01.6';
 let gsUpdateRegistration=null,gsUpdateChecking=false,gsUpdateMessage='',gsUpdateLastCheck=0,gsUpdateRequested=false,gsUpdateReloading=false,gsUpdateControllerChanged=false;
 const gsUpdateHadController=!!navigator.serviceWorker?.controller;
 function gsUpdateBusy(){return !!builder||!!document.querySelector('#modal')?.open||!!(db.draft&&draftHasProgress(db.draft))||!!(typeof cgRun==='function'&&cgRun()&&!cgRun().complete)||tab==='picker'}
