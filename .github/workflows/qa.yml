@@ -33,6 +33,12 @@ jobs:
         run: node tests/smoke.cjs
       - name: Mobile WebKit smoke tests
         run: GS_BROWSER=webkit node tests/smoke.cjs
+      - name: Mobile browser update lifecycle tests
+        run: |
+          node tests/update-browser.cjs
+          GS_BROWSER=webkit node tests/update-browser.cjs
+      - name: Update safety regression tests
+        run: node tests/app-updates.cjs
       - name: Cardio guide regression tests
         run: node tests/cardio-guide.cjs
       - name: Rest timer regression tests
